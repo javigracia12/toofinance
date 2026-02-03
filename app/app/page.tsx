@@ -176,21 +176,21 @@ function TransactionRow({
 }) {
   return (
     <div
-      className={`flex items-center justify-between px-5 py-4 group ${showBorder ? 'border-b border-zinc-100' : ''} ${onEdit ? 'hover:bg-zinc-50 cursor-pointer' : ''}`}
+      className={`flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 group ${showBorder ? 'border-b border-zinc-100' : ''} ${onEdit ? 'hover:bg-zinc-50 cursor-pointer' : ''}`}
       onClick={onEdit}
     >
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
         <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-medium"
+          className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-white text-xs font-medium flex-shrink-0"
           style={{ backgroundColor: category.color }}
         >
           {category.label.slice(0, 2).toUpperCase()}
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-zinc-900">{expense.description}</p>
+            <p className="text-sm font-medium text-zinc-900 truncate">{expense.description}</p>
             {isRecurring && (
-              <span className="px-1.5 py-0.5 bg-zinc-100 text-zinc-500 text-[10px] font-medium rounded">RECURRING</span>
+              <span className="px-1.5 py-0.5 bg-zinc-100 text-zinc-500 text-[10px] font-medium rounded flex-shrink-0 hidden sm:inline">REC</span>
             )}
           </div>
           <p className="text-xs text-zinc-400">
@@ -198,10 +198,10 @@ function TransactionRow({
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 ml-2">
         <p className="text-sm font-semibold text-zinc-900 tabular-nums">{formatCurrency(expense.amount)}</p>
         {onEdit && (
-          <span className="text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">Edit →</span>
+          <span className="text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:inline">Edit →</span>
         )}
       </div>
     </div>
@@ -706,22 +706,9 @@ export default function AppPage() {
   return (
     <div className="min-h-screen bg-white">
       <header className="border-b border-zinc-100">
-        <div className="max-w-2xl mx-auto px-6 py-5 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-zinc-900">Expenses</h1>
-          <div className="flex items-center gap-3">
-            <div className="flex bg-zinc-100 rounded-lg p-1">
-              {['add', 'dashboard', 'recurring'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setView(tab as typeof view)}
-                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all capitalize ${
-                    view === tab ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-semibold text-zinc-900">Expenses</h1>
             <button
               onClick={handleLogout}
               className="text-sm text-zinc-500 hover:text-zinc-700"
@@ -729,22 +716,35 @@ export default function AppPage() {
               Log out
             </button>
           </div>
+          <div className="flex bg-zinc-100 rounded-lg p-1 mt-3">
+            {['add', 'dashboard', 'recurring'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setView(tab as typeof view)}
+                className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all capitalize ${
+                  view === tab ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-8">
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {view === 'add' && (
           <div className="space-y-8">
-            <div className="text-center py-8">
+            <div className="text-center py-6 sm:py-8">
               <label className="text-sm text-zinc-400 uppercase tracking-wider font-medium">Amount</label>
               <div className="mt-3 flex items-center justify-center">
-                <span className="text-4xl text-zinc-300 mr-2">€</span>
+                <span className="text-3xl sm:text-4xl text-zinc-300 mr-2">€</span>
                 <input
                   type="number"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0.00"
-                  className="text-6xl font-light text-zinc-900 bg-transparent border-none outline-none w-64 text-center tabular-nums placeholder:text-zinc-200"
+                  className="text-4xl sm:text-6xl font-light text-zinc-900 bg-transparent border-none outline-none w-48 sm:w-64 text-center tabular-nums placeholder:text-zinc-200"
                   autoFocus
                 />
               </div>
@@ -847,11 +847,11 @@ export default function AppPage() {
               </div>
             )}
 
-            <div className="text-center py-6">
+            <div className="text-center py-4 sm:py-6">
               <p className="text-sm text-zinc-400 uppercase tracking-wider font-medium">
                 {monthFilter ? formatFullMonth(monthFilter) : 'This Month'}
               </p>
-              <p className="mt-2 text-5xl font-semibold text-zinc-900 tabular-nums">{formatCurrency(activeMonthTotal)}</p>
+              <p className="mt-2 text-4xl sm:text-5xl font-semibold text-zinc-900 tabular-nums">{formatCurrency(activeMonthTotal)}</p>
               {!monthFilter && (
                 <p className={`mt-2 text-sm font-medium ${+percentChange > 0 ? 'text-red-500' : +percentChange < 0 ? 'text-green-500' : 'text-zinc-400'}`}>
                   {+percentChange > 0 ? '↑' : +percentChange < 0 ? '↓' : ''} {Math.abs(+percentChange)}% vs last month
@@ -859,7 +859,7 @@ export default function AppPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <MetricCard label="Previous Month" value={formatCurrency(lastMonthTotal)} />
               <MetricCard label="Transactions" value={activeMonthExpenses.length.toString()} />
               <MetricCard label="Average" value={formatCurrency(activeMonthExpenses.length > 0 ? activeMonthTotal / activeMonthExpenses.length : 0)} />
@@ -867,8 +867,8 @@ export default function AppPage() {
 
             <div>
               <SectionTitle>6-Month Trend</SectionTitle>
-              <Card className="p-6">
-                <div className="flex items-end gap-4 h-64">
+              <Card className="p-4 sm:p-6">
+                <div className="flex items-end gap-2 sm:gap-4 h-48 sm:h-64">
                   {monthlyDataByCategory.map(({ month, total, segments }) => {
                     const isActive = month === activeMonth
                     const isFiltered = monthFilter === month
@@ -880,13 +880,13 @@ export default function AppPage() {
                         tabIndex={0}
                         onClick={() => handleMonthClick(month)}
                         onKeyDown={(e) => e.key === 'Enter' && handleMonthClick(month)}
-                        className="flex-1 flex flex-col items-center gap-3 group min-w-0 cursor-pointer"
+                        className="flex-1 flex flex-col items-center gap-2 sm:gap-3 group min-w-0 cursor-pointer"
                       >
-                        <span className="text-xs text-zinc-400 tabular-nums group-hover:text-zinc-600 truncate w-full text-center">{formatCurrency(total)}</span>
-                        <div className="w-full h-48 flex flex-col justify-end items-center">
+                        <span className="text-[10px] sm:text-xs text-zinc-400 tabular-nums group-hover:text-zinc-600 truncate w-full text-center hidden sm:block">{formatCurrency(total)}</span>
+                        <div className="w-full h-36 sm:h-48 flex flex-col justify-end items-center">
                           <div
-                            className={`w-full max-w-16 flex flex-col rounded-t-lg overflow-hidden transition-all cursor-pointer ${isFiltered ? 'ring-2 ring-zinc-900 ring-offset-2' : ''}`}
-                            style={{ height: `${barHeightPct}%`, minHeight: 24 }}
+                            className={`w-full max-w-12 sm:max-w-16 flex flex-col rounded-t-lg overflow-hidden transition-all cursor-pointer ${isFiltered ? 'ring-2 ring-zinc-900 ring-offset-2' : ''}`}
+                            style={{ height: `${barHeightPct}%`, minHeight: 20 }}
                           >
                             {[...segments].reverse().map(({ category, amount }) => {
                               const segPct = total > 0 ? (amount / total) * 100 : 0
@@ -903,7 +903,7 @@ export default function AppPage() {
                             })}
                           </div>
                         </div>
-                        <span className={`text-xs font-medium whitespace-nowrap ${isFiltered || isActive ? 'text-zinc-900' : 'text-zinc-400 group-hover:text-zinc-600'}`}>
+                        <span className={`text-[10px] sm:text-xs font-medium whitespace-nowrap ${isFiltered || isActive ? 'text-zinc-900' : 'text-zinc-400 group-hover:text-zinc-600'}`}>
                           {formatShortMonth(month)}
                         </span>
                       </div>
@@ -916,7 +916,7 @@ export default function AppPage() {
             {categoryBreakdown.length > 0 && (
               <div>
                 <SectionTitle>By Category</SectionTitle>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   {categoryBreakdown.map(({ category, amount }) => {
                     const percent = (amount / activeMonthTotal) * 100
                     const isFiltered = categoryFilter === category.id
@@ -985,9 +985,9 @@ export default function AppPage() {
 
         {view === 'recurring' && (
           <div className="space-y-8">
-            <div className="text-center py-6">
+            <div className="text-center py-4 sm:py-6">
               <p className="text-sm text-zinc-400 uppercase tracking-wider font-medium">Monthly Recurring</p>
-              <p className="mt-2 text-4xl font-semibold text-zinc-900 tabular-nums">{formatCurrency(monthlyRecurringTotal)}</p>
+              <p className="mt-2 text-3xl sm:text-4xl font-semibold text-zinc-900 tabular-nums">{formatCurrency(monthlyRecurringTotal)}</p>
               <p className="mt-1 text-sm text-zinc-400">{recurringExpenses.filter((r) => r.isActive).length} active expenses</p>
             </div>
 
@@ -1003,33 +1003,34 @@ export default function AppPage() {
                   {recurringExpenses.map((recurring) => {
                     const cat = getCategory(recurring.category)
                     return (
-                      <Card key={recurring.id} className={`p-4 ${!recurring.isActive ? 'opacity-50' : ''}`}>
-                        <div className="flex items-center gap-4">
+                      <Card key={recurring.id} className={`p-3 sm:p-4 ${!recurring.isActive ? 'opacity-50' : ''}`}>
+                        <div className="flex items-start sm:items-center gap-3 sm:gap-4">
                           <div
-                            className="w-12 h-12 rounded-xl flex items-center justify-center text-white text-sm font-medium"
+                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-white text-xs sm:text-sm font-medium flex-shrink-0"
                             style={{ backgroundColor: cat.color }}
                           >
                             {cat.label.slice(0, 2).toUpperCase()}
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-zinc-900">{recurring.description}</p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium text-zinc-900 truncate">{recurring.description}</p>
                               {!recurring.isActive && (
                                 <span className="px-1.5 py-0.5 bg-zinc-200 text-zinc-500 text-[10px] font-medium rounded">PAUSED</span>
                               )}
                             </div>
-                            <p className="text-sm text-zinc-400">
-                              {recurring.dayOfMonth}{getOrdinalSuffix(recurring.dayOfMonth)} of every month • {cat.label}
+                            <p className="text-xs sm:text-sm text-zinc-400">
+                              {recurring.dayOfMonth}{getOrdinalSuffix(recurring.dayOfMonth)} of month • {cat.label}
                             </p>
+                            <p className="text-base sm:text-lg font-semibold text-zinc-900 tabular-nums mt-1 sm:hidden">{formatCurrency(recurring.amount)}</p>
                           </div>
-                          <p className="text-lg font-semibold text-zinc-900 tabular-nums">{formatCurrency(recurring.amount)}</p>
+                          <p className="text-lg font-semibold text-zinc-900 tabular-nums hidden sm:block">{formatCurrency(recurring.amount)}</p>
                         </div>
-                        <div className="flex gap-2 mt-4 pt-4 border-t border-zinc-100">
+                        <div className="flex gap-2 mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-zinc-100">
                           <Button variant="secondary" size="small" onClick={() => openEditRecurring(recurring)} className="flex-1">Edit</Button>
                           <Button variant="secondary" size="small" onClick={() => handleToggleRecurring(recurring.id)} className="flex-1">
                             {recurring.isActive ? 'Pause' : 'Resume'}
                           </Button>
-                          <Button variant="danger" size="small" onClick={() => setDeletingRecurring(recurring)}>Delete</Button>
+                          <Button variant="danger" size="small" onClick={() => setDeletingRecurring(recurring)}>Del</Button>
                         </div>
                       </Card>
                     )
