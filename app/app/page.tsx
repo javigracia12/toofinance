@@ -1227,7 +1227,7 @@ export default function AppPage() {
                                 className="absolute -translate-x-1/2 -translate-y-1/2 focus:outline-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-blue-500/20 z-10"
                                 style={{ left: `${point.x}%`, top: `${point.y}%` }}
                                 onClick={() => handleDayClick(point.date)}
-                                aria-pressed={isSelected}
+                                aria-pressed={!!isSelected}
                                 aria-label={`Filter by day ${point.dayNum}`}
                                 title={`Day ${point.dayNum}: ${formatCurrency(point.amount)}`}
                               >
