@@ -290,6 +290,7 @@ export default function AppPage() {
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const [section, setSection] = useState<'expenses' | 'wealth'>('expenses')
   const [view, setView] = useState<'add' | 'dashboard' | 'recurring'>('add')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [monthFilter, setMonthFilter] = useState<string | null>(null)
@@ -708,7 +709,19 @@ export default function AppPage() {
       <header className="border-b border-zinc-100">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-lg font-semibold text-zinc-900">Expenses</h1>
+            <div className="flex items-center gap-1">
+              {(['expenses', 'wealth'] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSection(s)}
+                  className={`px-3 sm:px-4 py-1.5 text-base sm:text-lg font-semibold transition-colors capitalize ${
+                    section === s ? 'text-zinc-900' : 'text-zinc-300 hover:text-zinc-500'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
             <button
               onClick={handleLogout}
               className="text-sm text-zinc-500 hover:text-zinc-700"
@@ -716,24 +729,58 @@ export default function AppPage() {
               Log out
             </button>
           </div>
-          <div className="flex bg-zinc-100 rounded-lg p-1 mt-3">
-            {['add', 'dashboard', 'recurring'].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setView(tab as typeof view)}
-                className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all capitalize ${
-                  view === tab ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
+          {section === 'expenses' && (
+            <div className="flex bg-zinc-100 rounded-lg p-1 mt-3">
+              {['add', 'dashboard', 'recurring'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setView(tab as typeof view)}
+                  className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all capitalize ${
+                    view === tab ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </header>
 
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {view === 'add' && (
+        {section === 'wealth' && (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="w-16 h-16 bg-zinc-100 rounded-2xl flex items-center justify-center mb-6">
+              <svg className="w-8 h-8 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-semibold text-zinc-900 mb-2">Wealth Tracker</h2>
+            <p className="text-zinc-500 text-center max-w-sm mb-6">
+              Track your net worth, assets, debts, and cash accounts. See your complete financial picture.
+            </p>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-100 rounded-full">
+              <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+              <span className="text-sm font-medium text-zinc-600">Coming Soon</span>
+            </div>
+            <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-lg opacity-50">
+              <Card className="p-4 text-center">
+                <p className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Cash</p>
+                <p className="text-lg font-semibold text-zinc-300 mt-1">€ --</p>
+              </Card>
+              <Card className="p-4 text-center">
+                <p className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Assets</p>
+                <p className="text-lg font-semibold text-zinc-300 mt-1">€ --</p>
+              </Card>
+              <Card className="p-4 text-center">
+                <p className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Debts</p>
+                <p className="text-lg font-semibold text-zinc-300 mt-1">€ --</p>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {section === 'expenses' && view === 'add' && (
           <div className="space-y-8">
             <div className="text-center py-6 sm:py-8">
               <label className="text-sm text-zinc-400 uppercase tracking-wider font-medium">Amount</label>
@@ -836,7 +883,7 @@ export default function AppPage() {
           </div>
         )}
 
-        {view === 'dashboard' && (
+        {section === 'expenses' && view === 'dashboard' && (
           <div className="space-y-10">
             {hasFilters && (
               <div className="flex items-center gap-2 flex-wrap">
@@ -983,7 +1030,7 @@ export default function AppPage() {
           </div>
         )}
 
-        {view === 'recurring' && (
+        {section === 'expenses' && view === 'recurring' && (
           <div className="space-y-8">
             <div className="text-center py-4 sm:py-6">
               <p className="text-sm text-zinc-400 uppercase tracking-wider font-medium">Monthly Recurring</p>
