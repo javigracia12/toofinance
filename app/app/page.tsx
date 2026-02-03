@@ -42,7 +42,8 @@ type Category = {
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EUR' }).format(n)
 
-const getMonthKey = (date: string) => date.slice(0, 7)
+const getMonthKey = (date: string) => (date || '').slice(0, 7)
+const normalizeDate = (date: string) => (date || '').split('T')[0]
 
 const formatShortMonth = (key: string) => {
   const [y, m] = key.split('-')
@@ -53,6 +54,11 @@ const formatFullMonth = (key: string) => {
   const [y, m] = key.split('-')
   return new Date(+y, +m - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
+
+const formatDayLabel = (date: string) =>
+  new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+
+const formatVsLastMonth = (value: number) => `${value > 0 ? '+' : ''}${value.toFixed(0)}% vs last month`
 
 const getOrdinalSuffix = (day: number) => {
   if (day > 3 && day < 21) return 'th'
@@ -131,12 +137,12 @@ function CategoryPill({
   category,
   selected,
   onClick,
-  onDelete,
+  onEdit,
 }: {
   category: Category
   selected: boolean
   onClick: () => void
-  onDelete?: () => void
+  onEdit?: () => void
 }) {
   return (
     <div className="relative group">
@@ -149,12 +155,13 @@ function CategoryPill({
       >
         {category.label}
       </button>
-      {onDelete && !selected && (
+      {onEdit && !selected && (
         <button
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="absolute -top-1 -right-1 w-5 h-5 bg-zinc-400 hover:bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+          onClick={(e) => { e.stopPropagation(); onEdit() }}
+          className="absolute -top-1 -right-1 w-5 h-5 bg-zinc-500 hover:bg-zinc-700 text-white rounded-full text-[10px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+          title="Edit category"
         >
-          ×
+          ✎
         </button>
       )}
     </div>
@@ -252,6 +259,7 @@ function Input({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onWheel={type === 'number' ? (e) => e.currentTarget.blur() : undefined}
         placeholder={placeholder}
         className="w-full px-4 py-3 text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-colors placeholder:text-zinc-300 dark:placeholder:text-zinc-500"
       />
@@ -294,6 +302,7 @@ export default function AppPage() {
   const [view, setView] = useState<'add' | 'dashboard' | 'recurring'>('add')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [monthFilter, setMonthFilter] = useState<string | null>(null)
+  const [dayFilter, setDayFilter] = useState<string | null>(null)
 
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
@@ -305,6 +314,10 @@ export default function AppPage() {
   const [showNewCategoryModal, setShowNewCategoryModal] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryColor, setNewCategoryColor] = useState(CATEGORY_COLORS[0])
+
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [editCategoryName, setEditCategoryName] = useState('')
+  const [editCategoryColor, setEditCategoryColor] = useState('')
 
   const [editingRecurring, setEditingRecurring] = useState<RecurringExpense | null>(null)
   const [editAmount, setEditAmount] = useState('')
@@ -426,6 +439,10 @@ export default function AppPage() {
 
   const activeMonth = monthFilter || currentMonth
 
+  useEffect(() => {
+    if (dayFilter && getMonthKey(dayFilter) !== activeMonth) setDayFilter(null)
+  }, [activeMonth, dayFilter])
+
   const activeMonthExpenses = useMemo(
     () => expenses.filter((e) => getMonthKey(e.date) === activeMonth),
     [expenses, activeMonth]
@@ -445,16 +462,6 @@ export default function AppPage() {
   )
 
   const percentChange = lastMonthTotal > 0 ? (((activeMonthTotal - lastMonthTotal) / lastMonthTotal) * 100).toFixed(0) : '0'
-
-  const categoryBreakdown = useMemo(() => {
-    const data: Record<string, number> = {}
-    activeMonthExpenses.forEach((e) => {
-      data[e.category] = (data[e.category] || 0) + e.amount
-    })
-    return Object.entries(data)
-      .map(([id, amount]) => ({ category: getCategory(id), amount }))
-      .sort((a, b) => b.amount - a.amount)
-  }, [activeMonthExpenses, categories])
 
   const monthlyDataByCategory = useMemo(() => {
     const byMonth: Record<string, Record<string, number>> = {}
@@ -476,8 +483,24 @@ export default function AppPage() {
   const filteredExpenses = useMemo(() => {
     let filtered = activeMonthExpenses
     if (categoryFilter) filtered = filtered.filter((e) => e.category === categoryFilter)
+    if (dayFilter && getMonthKey(dayFilter) === activeMonth) {
+      const target = normalizeDate(dayFilter)
+      filtered = filtered.filter((e) => normalizeDate(e.date) === target)
+    }
     return filtered.sort((a, b) => b.date.localeCompare(a.date))
-  }, [activeMonthExpenses, categoryFilter])
+  }, [activeMonthExpenses, categoryFilter, dayFilter, activeMonth])
+
+  const filteredTotal = filteredExpenses.reduce((s, e) => s + e.amount, 0)
+
+  const categoryBreakdown = useMemo(() => {
+    const data: Record<string, number> = {}
+    filteredExpenses.forEach((e) => {
+      data[e.category] = (data[e.category] || 0) + e.amount
+    })
+    return Object.entries(data)
+      .map(([id, amount]) => ({ category: getCategory(id), amount }))
+      .sort((a, b) => b.amount - a.amount)
+  }, [filteredExpenses, categories])
 
   const recentExpenses = useMemo(
     () => [...expenses].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5),
@@ -485,8 +508,20 @@ export default function AppPage() {
   )
 
   const maxMonth = Math.max(...monthlyData.map(([, v]) => v), 1)
-  const hasFilters = categoryFilter || monthFilter
+  const hasFilters = categoryFilter || monthFilter || dayFilter
   const monthlyRecurringTotal = recurringExpenses.filter((r) => r.isActive).reduce((sum, r) => sum + r.amount, 0)
+
+  // Helper to check if a category is rent/housing (fixed expense)
+  const isRentCategory = (catId: string): boolean => {
+    const cat = categories.find((c) => c.id === catId)
+    if (!cat) return false
+    const label = cat.label.toLowerCase()
+    const id = catId.toLowerCase()
+    return label.includes('rent') || label.includes('alquiler') || label.includes('housing') || label.includes('hipoteca') || label.includes('mortgage') || id.includes('rent') || id.includes('housing')
+  }
+
+  // Recurring total excluding rent
+  const monthlyRecurringExRent = recurringExpenses.filter((r) => r.isActive && !isRentCategory(r.category)).reduce((sum, r) => sum + r.amount, 0)
 
   // Predictions & extra metrics (current month only, no filters). Recurring = full month, not scaled. One-off = scaled.
   const predictionMetrics = useMemo(() => {
@@ -496,31 +531,113 @@ export default function AppPage() {
     const daysInMonth = new Date(y, m, 0).getDate()
     const daysElapsed = Math.min(now.getDate(), daysInMonth)
     const daysRemaining = Math.max(0, daysInMonth - daysElapsed)
+
+    // Filter out rent for variable spending metrics
     const oneOffExpenses = activeMonthExpenses.filter((e) => !e.recurringId)
+    const oneOffExRent = oneOffExpenses.filter((e) => !isRentCategory(e.category))
     const oneOffTotal = oneOffExpenses.reduce((s, e) => s + e.amount, 0)
+    const oneOffTotalExRent = oneOffExRent.reduce((s, e) => s + e.amount, 0)
+
     const recurringTotalThisMonth = monthlyRecurringTotal
     const oneOffDailyAvg = daysElapsed > 0 ? oneOffTotal / daysElapsed : 0
     const predictedOneOff = oneOffTotal + oneOffDailyAvg * daysRemaining
     const predictedEndOfMonth = recurringTotalThisMonth + predictedOneOff
-    const dailyAvg = oneOffDailyAvg
-    const weeklyAvg = oneOffDailyAvg * 7
+
+    // Metrics excluding rent (variable spending only)
+    const dailyAvgExRent = daysElapsed > 0 ? oneOffTotalExRent / daysElapsed : 0
+    const weeklyAvgExRent = dailyAvgExRent * 7
+    const predictedOneOffExRent = oneOffTotalExRent + dailyAvgExRent * daysRemaining
+    const predictedExRent = monthlyRecurringExRent + predictedOneOffExRent
+
+    // Highest spending day
     const byDay: Record<string, number> = {}
     activeMonthExpenses.forEach((e) => {
       byDay[e.date] = (byDay[e.date] || 0) + e.amount
     })
     const highestDayEntry = Object.entries(byDay).sort(([, a], [, b]) => b - a)[0]
+
+    // Daily spending data for chart
+    const dailySpending: { date: string; amount: number; dayNum: number }[] = []
+    for (let d = 1; d <= daysElapsed; d++) {
+      const dateStr = `${activeMonth}-${String(d).padStart(2, '0')}`
+      dailySpending.push({ date: dateStr, amount: byDay[dateStr] || 0, dayNum: d })
+    }
+
+    // Spending velocity: compare to same point last month
+    const lastMonthSamePoint = expenses
+      .filter((e) => getMonthKey(e.date) === lastMonthKey && new Date(e.date).getDate() <= daysElapsed)
+      .reduce((s, e) => s + e.amount, 0)
+    const currentSpendingToDate = activeMonthExpenses.reduce((s, e) => s + e.amount, 0)
+    const velocityDiff = lastMonthSamePoint > 0 ? ((currentSpendingToDate - lastMonthSamePoint) / lastMonthSamePoint) * 100 : 0
+
+    // Weekend vs weekday (excluding rent)
+    let weekendTotal = 0
+    let weekdayTotal = 0
+    let weekendDays = 0
+    let weekdayDays = 0
+    for (let d = 1; d <= daysElapsed; d++) {
+      const dateStr = `${activeMonth}-${String(d).padStart(2, '0')}`
+      const dayOfWeek = new Date(y, m - 1, d).getDay()
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+      const dayAmount = activeMonthExpenses
+        .filter((e) => e.date === dateStr && !isRentCategory(e.category))
+        .reduce((s, e) => s + e.amount, 0)
+      if (isWeekend) {
+        weekendTotal += dayAmount
+        weekendDays++
+      } else {
+        weekdayTotal += dayAmount
+        weekdayDays++
+      }
+    }
+    const weekendAvg = weekendDays > 0 ? weekendTotal / weekendDays : 0
+    const weekdayAvg = weekdayDays > 0 ? weekdayTotal / weekdayDays : 0
+
     return {
       predictedEndOfMonth,
-      dailyAvg,
-      weeklyAvg,
+      predictedExRent,
+      dailyAvgExRent,
+      weeklyAvgExRent,
       highestDay: highestDayEntry ? { date: highestDayEntry[0], amount: highestDayEntry[1] } : null,
       daysRemaining,
+      daysElapsed,
+      dailySpending,
+      velocityDiff,
+      weekendAvg,
+      weekdayAvg,
     }
-  }, [activeMonth, currentMonth, monthFilter, categoryFilter, activeMonthExpenses, monthlyRecurringTotal])
+  }, [activeMonth, currentMonth, monthFilter, categoryFilter, activeMonthExpenses, monthlyRecurringTotal, monthlyRecurringExRent, expenses, lastMonthKey, categories])
+
+  const dailySpendingPoints = useMemo(() => {
+    if (!predictionMetrics) return []
+    const daily = predictionMetrics.dailySpending
+    if (daily.length === 0) return []
+    const max = Math.max(...daily.map((d) => d.amount), 1)
+    return daily.map((point, index) => {
+      const x = daily.length > 1 ? (index / (daily.length - 1)) * 100 : 0
+      const y = max > 0 ? 100 - (point.amount / max) * 100 : 100
+      return { ...point, x, y }
+    })
+  }, [predictionMetrics])
+
+  const dailySpendingPath = useMemo(
+    () => (dailySpendingPoints.length > 0 ? dailySpendingPoints.map((p) => `${p.x},${p.y}`).join(' ') : ''),
+    [dailySpendingPoints]
+  )
+
+  const vsLastMonthDiff = predictionMetrics?.velocityDiff ?? 0
+  const vsLastMonthClass =
+    vsLastMonthDiff > 0
+      ? 'text-red-500'
+      : vsLastMonthDiff < 0
+        ? 'text-green-500'
+        : 'text-zinc-400 dark:text-zinc-500'
+  const vsLastMonthLabel = formatVsLastMonth(vsLastMonthDiff)
 
   const clearFilters = () => {
     setCategoryFilter(null)
     setMonthFilter(null)
+    setDayFilter(null)
   }
 
   const handleExportCSV = () => {
@@ -748,11 +865,25 @@ export default function AppPage() {
     setShowNewCategoryModal(false)
   }
 
+  const openEditCategory = (cat: Category) => {
+    setEditingCategory(cat)
+    setEditCategoryName(cat.label)
+    setEditCategoryColor(cat.color)
+  }
+
+  const handleSaveCategory = async () => {
+    if (!editingCategory || !editCategoryName.trim()) return
+    await supabase.from('categories').update({ label: editCategoryName.trim(), color: editCategoryColor }).eq('id', editingCategory.id)
+    setCategories((prev) => prev.map((c) => c.id === editingCategory.id ? { ...c, label: editCategoryName.trim(), color: editCategoryColor } : c))
+    setEditingCategory(null)
+  }
+
   const handleDeleteCategory = async (categoryId: string) => {
     await supabase.from('categories').delete().eq('id', categoryId)
     setCategories((prev) => prev.filter((c) => c.id !== categoryId))
     if (selectedCategory === categoryId) setSelectedCategory('food')
     if (categoryFilter === categoryId) setCategoryFilter(null)
+    setEditingCategory(null)
   }
 
   const handleCategoryClick = (categoryId: string) => {
@@ -761,6 +892,11 @@ export default function AppPage() {
 
   const handleMonthClick = (month: string) => {
     setMonthFilter((prev) => (prev === month ? null : month))
+    setDayFilter(null)
+  }
+
+  const handleDayClick = (date: string) => {
+    setDayFilter((prev) => (prev === date ? null : date))
   }
 
   const dayOptions = Array.from({ length: 28 }, (_, i) => ({
@@ -879,6 +1015,7 @@ export default function AppPage() {
                   type="number"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
                   placeholder="0.00"
                   className="text-4xl sm:text-6xl font-light text-zinc-900 dark:text-zinc-50 bg-transparent border-none outline-none w-48 sm:w-64 text-center tabular-nums placeholder:text-zinc-200 dark:placeholder:text-zinc-600"
                   autoFocus
@@ -906,7 +1043,7 @@ export default function AppPage() {
                     category={cat}
                     selected={selectedCategory === cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
-                    onDelete={cat.isCustom ? () => handleDeleteCategory(cat.id) : undefined}
+                    onEdit={cat.isCustom ? () => openEditCategory(cat) : undefined}
                   />
                 ))}
                 <button
@@ -977,8 +1114,9 @@ export default function AppPage() {
             {hasFilters && (
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-zinc-400 dark:text-zinc-500">Filters:</span>
-                {monthFilter && <FilterPill label={formatFullMonth(monthFilter)} onClear={() => setMonthFilter(null)} />}
+                {monthFilter && <FilterPill label={formatFullMonth(monthFilter)} onClear={() => { setMonthFilter(null); setDayFilter(null) }} />}
                 {categoryFilter && <FilterPill label={getCategory(categoryFilter).label} onClear={() => setCategoryFilter(null)} />}
+                {dayFilter && getMonthKey(dayFilter) === activeMonth && <FilterPill label={formatDayLabel(dayFilter)} onClear={() => setDayFilter(null)} />}
                 <button onClick={clearFilters} className="text-sm text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 ml-2">Clear all</button>
               </div>
             )}
@@ -986,8 +1124,9 @@ export default function AppPage() {
             <div className="text-center py-4 sm:py-6">
               <p className="text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">
                 {monthFilter ? formatFullMonth(monthFilter) : 'This Month'}
+                {hasFilters && ' (filtered)'}
               </p>
-              <p className="mt-2 text-4xl sm:text-5xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(activeMonthTotal)}</p>
+              <p className="mt-2 text-4xl sm:text-5xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(hasFilters ? filteredTotal : activeMonthTotal)}</p>
               {!monthFilter && (
                 <p className={`mt-2 text-sm font-medium ${+percentChange > 0 ? 'text-red-500' : +percentChange < 0 ? 'text-green-500' : 'text-zinc-400 dark:text-zinc-500'}`}>
                   {+percentChange > 0 ? '↑' : +percentChange < 0 ? '↓' : ''} {Math.abs(+percentChange)}% vs last month
@@ -997,37 +1136,140 @@ export default function AppPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <MetricCard label="Previous Month" value={formatCurrency(lastMonthTotal)} />
-              <MetricCard label="Transactions" value={activeMonthExpenses.length.toString()} />
-              <MetricCard label="Avg per expense" value={formatCurrency(activeMonthExpenses.length > 0 ? activeMonthTotal / activeMonthExpenses.length : 0)} />
+              <MetricCard label="Transactions" value={hasFilters ? filteredExpenses.length.toString() : activeMonthExpenses.length.toString()} />
+              <MetricCard
+                label="Avg per expense"
+                value={formatCurrency(
+                  hasFilters
+                    ? (filteredExpenses.length > 0 ? filteredTotal / filteredExpenses.length : 0)
+                    : (activeMonthExpenses.length > 0 ? activeMonthTotal / activeMonthExpenses.length : 0)
+                )}
+              />
             </div>
 
             {predictionMetrics && (
-              <div>
-                <SectionTitle>Insights & prediction</SectionTitle>
-                <Card className="p-4 sm:p-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div>
-                      <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Predicted end of month</p>
-                      <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.predictedEndOfMonth)}</p>
-                      <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">Recurring + projected one-off · {predictionMetrics.daysRemaining} days left</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Daily avg (one-off)</p>
-                      <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.dailyAvg)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Weekly avg (one-off)</p>
-                      <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.weeklyAvg)}</p>
-                    </div>
-                    {predictionMetrics.highestDay && (
-                      <div>
-                        <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Highest spending day</p>
-                        <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.highestDay.amount)}</p>
-                        <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">{new Date(predictionMetrics.highestDay.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                      </div>
-                    )}
+              <div className="space-y-6">
+                <div>
+                  <SectionTitle>Predictions</SectionTitle>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Card className="p-4 sm:p-5">
+                      <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">End of month (total)</p>
+                      <p className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.predictedEndOfMonth)}</p>
+                      <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{predictionMetrics.daysRemaining} days left</p>
+                      <p className={`text-[11px] mt-1 ${vsLastMonthClass}`}>({vsLastMonthLabel})</p>
+                    </Card>
+                    <Card className="p-4 sm:p-5">
+                      <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">End of month (ex. rent)</p>
+                      <p className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.predictedExRent)}</p>
+                      <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">Variable spending only</p>
+                      <p className={`text-[11px] mt-1 ${vsLastMonthClass}`}>({vsLastMonthLabel})</p>
+                    </Card>
                   </div>
-                </Card>
+                </div>
+
+                <div>
+                  <SectionTitle>Spending Habits (ex. rent)</SectionTitle>
+                  <Card className="p-4 sm:p-5">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Daily avg</p>
+                        <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.dailyAvgExRent)}</p>
+                        <p className={`text-[11px] mt-1 ${vsLastMonthClass}`}>({vsLastMonthLabel})</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Weekly avg</p>
+                        <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.weeklyAvgExRent)}</p>
+                        <p className={`text-[11px] mt-1 ${vsLastMonthClass}`}>({vsLastMonthLabel})</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Weekday avg</p>
+                        <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.weekdayAvg)}</p>
+                        <p className={`text-[11px] mt-1 ${vsLastMonthClass}`}>({vsLastMonthLabel})</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Weekend avg</p>
+                        <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.weekendAvg)}</p>
+                        <p className={`text-[11px] mt-1 ${vsLastMonthClass}`}>({vsLastMonthLabel})</p>
+                        {predictionMetrics.weekendAvg > predictionMetrics.weekdayAvg && (
+                          <p className="text-xs text-amber-500 mt-0.5">+{((predictionMetrics.weekendAvg / predictionMetrics.weekdayAvg - 1) * 100).toFixed(0)}% vs weekdays</p>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+
+                <div>
+                  <SectionTitle>Daily Spending</SectionTitle>
+                  <Card className="p-4 sm:p-5">
+                    {dailySpendingPoints.length === 0 ? (
+                      <div className="text-sm text-zinc-400 dark:text-zinc-500 text-center">No spending recorded yet this month.</div>
+                    ) : (
+                      <>
+                        <div className="relative w-full h-36 sm:h-40">
+                          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden>
+                            <polyline
+                              points={dailySpendingPath}
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="text-blue-500 dark:text-blue-400"
+                            />
+                          </svg>
+                          {dailySpendingPoints.map((point) => {
+                            const isToday = point.dayNum === predictionMetrics.daysElapsed
+                            const isSelected = dayFilter && normalizeDate(dayFilter) === normalizeDate(point.date)
+                            return (
+                              <button
+                                type="button"
+                                key={point.date}
+                                className="absolute -translate-x-1/2 -translate-y-1/2 focus:outline-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-blue-500/20 z-10"
+                                style={{ left: `${point.x}%`, top: `${point.y}%` }}
+                                onClick={() => handleDayClick(point.date)}
+                                aria-pressed={isSelected}
+                                aria-label={`Filter by day ${point.dayNum}`}
+                                title={`Day ${point.dayNum}: ${formatCurrency(point.amount)}`}
+                              >
+                                <span
+                                  className={`block w-2.5 h-2.5 rounded-full border-2 transition-colors ${
+                                    isSelected
+                                      ? 'bg-blue-500 border-blue-500 dark:bg-blue-400 dark:border-blue-400'
+                                      : isToday
+                                        ? 'bg-white border-blue-500 dark:bg-zinc-900 dark:border-blue-400'
+                                        : 'bg-white border-zinc-300 dark:bg-zinc-900 dark:border-zinc-600'
+                                  }`}
+                                />
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <div className="flex justify-between mt-3 text-[10px] text-zinc-400 dark:text-zinc-500">
+                          <span>1</span>
+                          <span>{predictionMetrics.daysElapsed}</span>
+                        </div>
+                        {dayFilter && (
+                          <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400 text-center">
+                            Filtering by {formatDayLabel(dayFilter)} · click point again to clear
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </Card>
+                </div>
+
+                {predictionMetrics.highestDay && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Card className="p-4 sm:p-5">
+                      <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Highest spending day</p>
+                      <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.highestDay.amount)}</p>
+                      <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+                        {new Date(predictionMetrics.highestDay.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      </p>
+                      <p className={`text-[11px] mt-1 ${vsLastMonthClass}`}>({vsLastMonthLabel})</p>
+                    </Card>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1084,7 +1326,7 @@ export default function AppPage() {
                 <SectionTitle>By Category</SectionTitle>
                 <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   {categoryBreakdown.map(({ category, amount }) => {
-                    const percent = (amount / activeMonthTotal) * 100
+                    const percent = filteredTotal > 0 ? (amount / filteredTotal) * 100 : 0
                     const isFiltered = categoryFilter === category.id
                     const isOther = categoryFilter && categoryFilter !== category.id
                     return (
@@ -1122,7 +1364,7 @@ export default function AppPage() {
                 <h2 className="text-xs text-zinc-400 uppercase tracking-wider font-medium mb-3">Insight</h2>
                 <p className="text-lg">
                   <span className="font-semibold">{categoryBreakdown[0].category.label}</span> is your biggest expense this month, accounting for{' '}
-                  <span className="font-semibold">{((categoryBreakdown[0].amount / activeMonthTotal) * 100).toFixed(0)}%</span> of your spending.
+                  <span className="font-semibold">{filteredTotal > 0 ? ((categoryBreakdown[0].amount / filteredTotal) * 100).toFixed(0) : 0}%</span> of your spending.
                 </p>
               </Card>
             )}
@@ -1301,6 +1543,36 @@ export default function AppPage() {
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" onClick={() => setDeletingRecurring(null)} className="flex-1">Cancel</Button>
             <Button variant="danger" onClick={handleDeleteRecurring} className="flex-1">Delete</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={!!editingCategory} onClose={() => setEditingCategory(null)} title="Edit Category">
+        <div className="space-y-4">
+          <Input label="Category Name" value={editCategoryName} onChange={setEditCategoryName} placeholder="e.g., Travel" />
+          <div>
+            <label className="block text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium mb-2">Color</label>
+            <div className="flex flex-wrap gap-2">
+              {CATEGORY_COLORS.map((color) => (
+                <button
+                  key={color}
+                  onClick={() => setEditCategoryColor(color)}
+                  className={`w-8 h-8 rounded-full transition-all ${editCategoryColor === color ? 'ring-2 ring-offset-2 ring-zinc-900 scale-110' : ''}`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => editingCategory && handleDeleteCategory(editingCategory.id)}
+              className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+            >
+              Delete
+            </Button>
+            <Button variant="secondary" onClick={() => setEditingCategory(null)} className="flex-1">Cancel</Button>
+            <Button onClick={handleSaveCategory} disabled={!editCategoryName.trim()} className="flex-1">Save</Button>
           </div>
         </div>
       </Modal>
