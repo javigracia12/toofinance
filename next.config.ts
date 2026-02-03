@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // No output mode needed - Cloudflare Pages supports full Next.js
+  output: "export",
+  images: { unoptimized: true },
 };
 
 export default nextConfig;

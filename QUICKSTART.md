@@ -19,7 +19,7 @@ git push -u origin main
 3. Autoriza GitHub y selecciona tu repositorio
 4. Configura el build:
    - **Build command**: `npm run build`
-   - **Build output directory**: `.next`
+   - **Build output directory**: `out`
 
 ### 3️⃣ Añade Variables de Entorno
 
@@ -64,7 +64,7 @@ wrangler login
 ### 3️⃣ Despliega
 
 ```bash
-npx wrangler pages deploy .next --project-name=expenses-app
+npx wrangler pages deploy out --project-name=toofinance
 ```
 
 ### 4️⃣ Añade variables de entorno

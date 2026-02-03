@@ -37,14 +37,14 @@ Este proyecto está listo para desplegarse en Cloudflare Pages (gratis).
    ```bash
    npm run build
    ```
-3. Sube la carpeta `.next` generada
+3. Sube la carpeta **out** generada (no `.next`)
 
 ## Paso 4: Configurar el proyecto en Cloudflare
 
 ### Build settings:
-- **Framework preset**: Next.js
+- **Framework preset**: Next.js (Static HTML Export)
 - **Build command**: `npm run build`
-- **Build output directory**: `.next`
+- **Build output directory**: `out`
 - **Root directory**: `/` (dejar vacío)
 
 ### Environment variables (muy importante):
@@ -70,7 +70,7 @@ Cada vez que hagas `git push`, Cloudflare desplegará automáticamente.
 1. `npm run build`
 2. Ve a tu proyecto en Cloudflare Pages
 3. Click en **Create deployment**
-4. Sube la nueva carpeta `.next`
+4. Sube la nueva carpeta **out**
 
 ## Dominio personalizado (opcional)
 
