@@ -1,37 +1,25 @@
-# FinanzasApp - Personal Finance Manager
+# Expenses - Personal Finance Tracker
 
-A beautiful, Apple-inspired personal finance application built with Next.js 14 and Supabase. Track your expenses, manage your net worth, and gain insights into your financial health.
+A beautiful, minimalist expense tracking application with Apple-inspired design. Built with Next.js 16 and Supabase.
 
-## Features
+## ✨ Features
 
-### Expense Tracking
-- Add, edit, and delete expenses with categories
-- Group expenses by date with daily totals
-- Search and filter by category
-- Visual analytics with pie charts and bar charts
-- Monthly spending trends
+- **Expense Tracking**: Add, edit, and delete expenses with custom categories
+- **Recurring Expenses**: Set up monthly recurring expenses (rent, subscriptions, etc.)
+- **Dashboard**: 6-month spending trends with category breakdown
+- **Category Management**: Create custom categories with color coding
+- **Filtering**: Filter expenses by category and month
+- **Authentication**: Secure login with email/password and password reset
+- **User Data**: Each user has their own isolated expense data
 
-### Net Worth Management
-- **Cash Accounts**: Track multiple bank accounts with balance history
-- **Assets**: Manage your assets (real estate, vehicles, investments, etc.) with purchase/current value tracking
-- **Debts**: Track loans and debts with payoff progress visualization
+## 🚀 Tech Stack
 
-### Monthly Reconciliation
-- Track monthly income from multiple sources
-- Compare tracked expenses vs. calculated real spending
-- Monthly snapshots for historical tracking
-- Visual charts showing income/expense evolution
-
-## Tech Stack
-
-- **Framework**: Next.js 14 (App Router)
+- **Framework**: Next.js 16 (App Router)
 - **Language**: TypeScript
-- **Styling**: Tailwind CSS with custom Apple-inspired design system
+- **Styling**: Tailwind CSS 4 with custom Apple-inspired design
 - **Database**: Supabase (PostgreSQL)
 - **Authentication**: Supabase Auth
-- **Charts**: Recharts
-- **Icons**: Lucide React
-- **Date Handling**: date-fns
+- **Hosting**: Cloudflare Pages (free)
 
 ## Getting Started
 
@@ -78,70 +66,61 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Project Structure
+## 🌐 Deploy to Cloudflare Pages (Free)
+
+See [DEPLOY.md](./DEPLOY.md) for detailed deployment instructions.
+
+**Quick steps:**
+1. Push your code to GitHub
+2. Connect your repo to Cloudflare Pages
+3. Add environment variables (Supabase URL and key)
+4. Deploy!
+
+Your app will be live at `https://your-project.pages.dev`
+
+## 📁 Project Structure
 
 ```
 ├── app/
 │   ├── (auth)/                 # Authentication pages
 │   │   ├── login/
-│   │   └── signup/
-│   ├── (dashboard)/            # Protected dashboard pages
-│   │   ├── page.tsx            # Main dashboard
-│   │   ├── expenses/           # Expense tracking
-│   │   │   ├── page.tsx
-│   │   │   └── analytics/
-│   │   ├── net-worth/          # Net worth management
-│   │   │   ├── page.tsx
-│   │   │   ├── cash/
-│   │   │   ├── assets/
-│   │   │   └── debts/
-│   │   └── monthly/            # Monthly reconciliation
+│   │   ├── signup/
+│   │   ├── forgot-password/
+│   │   └── reset-password/
+│   ├── app/                    # Main application (protected)
+│   │   └── page.tsx            # Expense tracker dashboard
 │   ├── layout.tsx
 │   └── globals.css
-├── components/
-│   ├── ui/                     # Reusable UI components
-│   ├── layout/                 # Layout components
-│   ├── charts/                 # Chart components
-│   └── forms/                  # Form components
 ├── lib/
 │   ├── supabase/              # Supabase client setup
-│   ├── types/                 # TypeScript types
-│   └── utils.ts               # Utility functions
-└── supabase/
-    └── migrations/            # Database migrations
+│   │   ├── client.ts          # Browser client
+│   │   ├── server.ts          # Server client
+│   │   └── middleware.ts      # Auth middleware
+│   └── constants.ts           # App constants
+├── supabase/
+│   └── migrations/            # Database migrations
+└── middleware.ts              # Next.js middleware
 ```
 
-## Design System
+## 🎨 Design System
 
-The app uses a custom design system inspired by Apple's design language:
+Minimalist design inspired by Apple, Airbnb, and BCG/McKinsey dashboards:
 
-### Colors
-- **Primary**: Deep Ocean Blue (#0A84FF) - Trust and stability
-- **Success**: Mint Green (#30D158) - Income and gains
-- **Danger**: Coral Red (#FF453A) - Expenses and losses
-- **Warning**: Amber (#FF9F0A) - Alerts
+- **Colors**: Zinc gray scale with vibrant category colors
+- **Typography**: System fonts with careful hierarchy
+- **Spacing**: Generous whitespace and padding
+- **Components**: Rounded corners (12-16px), subtle borders
+- **Interactions**: Smooth transitions, hover states
 
-### Components
-- Large touch targets (44px minimum)
-- Generous whitespace
-- Card-based layouts with rounded corners (16-24px border-radius)
-- Subtle shadows and glass-morphism effects
-- Smooth 300ms transitions
+## 🗄️ Database Schema
 
-## Database Schema
+Three main tables with Row Level Security:
 
-The app uses the following main tables:
+- **`categories`**: User categories (default + custom) with colors
+- **`expenses`**: Individual expense entries with category and date
+- **`recurring_expenses`**: Monthly recurring expenses (rent, subscriptions)
 
-- `categories` - Expense categories with icons and colors
-- `expenses` - Individual expense entries
-- `cash_accounts` - Bank/cash accounts
-- `cash_balances` - Historical balance snapshots
-- `assets` - Assets with purchase and current values
-- `debts` - Debts with payoff tracking
-- `income_entries` - Income records
-- `monthly_snapshots` - Monthly financial summaries
-
-All tables are protected with Row Level Security (RLS) policies.
+All data is isolated per user with RLS policies.
 
 ## License
 
