@@ -70,7 +70,7 @@ const getOrdinalSuffix = (day: number) => {
 
 function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`bg-zinc-50 border border-zinc-100 rounded-2xl ${className}`}>
+    <div className={`bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl ${className}`}>
       {children}
     </div>
   )
@@ -79,9 +79,9 @@ function Card({ children, className = '' }: { children: ReactNode; className?: s
 function MetricCard({ label, value, subtext }: { label: string; value: string; subtext?: ReactNode }) {
   return (
     <Card className="p-5">
-      <p className="text-xs text-zinc-400 uppercase tracking-wider font-medium">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-zinc-900 tabular-nums">{value}</p>
-      {subtext && <p className="mt-0.5 text-xs text-zinc-400">{subtext}</p>}
+      <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">{label}</p>
+      <p className="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{value}</p>
+      {subtext && <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">{subtext}</p>}
     </Card>
   )
 }
@@ -89,7 +89,7 @@ function MetricCard({ label, value, subtext }: { label: string; value: string; s
 function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex items-center justify-between mb-4">
-      <h2 className="text-sm text-zinc-400 uppercase tracking-wider font-medium">{children}</h2>
+      <h2 className="text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">{children}</h2>
       {action}
     </div>
   )
@@ -99,7 +99,7 @@ function FilterPill({ label, onClear }: { label: string; onClear: () => void }) 
   return (
     <button
       onClick={onClear}
-      className="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-900 text-white text-xs font-medium rounded-full hover:bg-zinc-700 transition-colors"
+      className="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-medium rounded-full hover:bg-zinc-700 dark:hover:bg-white transition-colors"
     >
       {label}
       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -143,7 +143,7 @@ function CategoryPill({
       <button
         onClick={onClick}
         className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-          selected ? 'text-white shadow-lg' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+          selected ? 'text-white shadow-lg' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
         }`}
         style={selected ? { backgroundColor: category.color } : {}}
       >
@@ -176,7 +176,7 @@ function TransactionRow({
 }) {
   return (
     <div
-      className={`flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 group ${showBorder ? 'border-b border-zinc-100' : ''} ${onEdit ? 'hover:bg-zinc-50 cursor-pointer' : ''}`}
+      className={`flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 group ${showBorder ? 'border-b border-zinc-100 dark:border-zinc-800' : ''} ${onEdit ? 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer' : ''}`}
       onClick={onEdit}
     >
       <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
@@ -188,20 +188,20 @@ function TransactionRow({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-zinc-900 truncate">{expense.description}</p>
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{expense.description}</p>
             {isRecurring && (
-              <span className="px-1.5 py-0.5 bg-zinc-100 text-zinc-500 text-[10px] font-medium rounded flex-shrink-0 hidden sm:inline">REC</span>
+              <span className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 text-[10px] font-medium rounded flex-shrink-0 hidden sm:inline">REC</span>
             )}
           </div>
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-zinc-400 dark:text-zinc-500">
             {new Date(expense.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </p>
         </div>
       </div>
       <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 ml-2">
-        <p className="text-sm font-semibold text-zinc-900 tabular-nums">{formatCurrency(expense.amount)}</p>
+        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(expense.amount)}</p>
         {onEdit && (
-          <span className="text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:inline">Edit →</span>
+          <span className="text-xs text-zinc-400 dark:text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:inline">Edit →</span>
         )}
       </div>
     </div>
@@ -212,9 +212,9 @@ function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose:
   if (!isOpen) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-auto">
-        <h3 className="text-lg font-semibold text-zinc-900 mb-4">{title}</h3>
+      <div className="absolute inset-0 bg-black/40 dark:bg-black/60" onClick={onClose} />
+      <div className="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-auto border border-zinc-100 dark:border-zinc-800">
+        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 mb-4">{title}</h3>
         {children}
       </div>
     </div>
@@ -229,8 +229,8 @@ function Button({
   const baseStyles = 'font-medium rounded-xl transition-all'
   const sizeStyles = size === 'small' ? 'px-3 py-2 text-xs' : 'px-4 py-3 text-sm'
   const variants = {
-    primary: 'bg-zinc-900 text-white hover:bg-zinc-800 disabled:bg-zinc-200 disabled:text-zinc-400',
-    secondary: 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200',
+    primary: 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white disabled:bg-zinc-200 dark:disabled:bg-zinc-700 disabled:text-zinc-400 dark:disabled:text-zinc-500',
+    secondary: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700',
     danger: 'bg-red-500 text-white hover:bg-red-600',
   }
   return (
@@ -247,13 +247,13 @@ function Input({
 }) {
   return (
     <div className={className}>
-      {label && <label className="block text-sm text-zinc-400 uppercase tracking-wider font-medium mb-2">{label}</label>}
+      {label && <label className="block text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium mb-2">{label}</label>}
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-4 py-3 text-zinc-900 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 transition-colors placeholder:text-zinc-300"
+        className="w-full px-4 py-3 text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-colors placeholder:text-zinc-300 dark:placeholder:text-zinc-500"
       />
     </div>
   )
@@ -266,11 +266,11 @@ function Select({
 }) {
   return (
     <div>
-      {label && <label className="block text-sm text-zinc-400 uppercase tracking-wider font-medium mb-2">{label}</label>}
+      {label && <label className="block text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium mb-2">{label}</label>}
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 text-zinc-900 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 transition-colors"
+        className="w-full px-4 py-3 text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-colors"
       >
         {options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
       </select>
@@ -318,6 +318,30 @@ export default function AppPage() {
   const [expenseDescription, setExpenseDescription] = useState('')
   const [expenseCategory, setExpenseCategory] = useState('')
   const [expenseDate, setExpenseDate] = useState('')
+
+  const [darkMode, setDarkMode] = useState(false)
+  useEffect(() => {
+    setDarkMode(typeof document !== 'undefined' && document.documentElement.classList.contains('dark'))
+  }, [])
+  const toggleDarkMode = () => {
+    const next = !darkMode
+    if (typeof document === 'undefined') return
+    const html = document.documentElement
+    html.classList.add('transition-theme')
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setDarkMode(next)
+        if (next) {
+          html.classList.add('dark')
+          localStorage.setItem('theme', 'dark')
+        } else {
+          html.classList.remove('dark')
+          localStorage.setItem('theme', 'light')
+        }
+        setTimeout(() => html.classList.remove('transition-theme'), 420)
+      })
+    })
+  }
 
   const getCategory = (id: string): Category =>
     categories.find((c) => c.id === id) || { id: 'other', label: 'Other', color: '#6b7280' }
@@ -464,9 +488,57 @@ export default function AppPage() {
   const hasFilters = categoryFilter || monthFilter
   const monthlyRecurringTotal = recurringExpenses.filter((r) => r.isActive).reduce((sum, r) => sum + r.amount, 0)
 
+  // Predictions & extra metrics (current month only, no filters). Recurring = full month, not scaled. One-off = scaled.
+  const predictionMetrics = useMemo(() => {
+    if (monthFilter || categoryFilter || activeMonth !== currentMonth) return null
+    const now = new Date()
+    const [y, m] = activeMonth.split('-').map(Number)
+    const daysInMonth = new Date(y, m, 0).getDate()
+    const daysElapsed = Math.min(now.getDate(), daysInMonth)
+    const daysRemaining = Math.max(0, daysInMonth - daysElapsed)
+    const oneOffExpenses = activeMonthExpenses.filter((e) => !e.recurringId)
+    const oneOffTotal = oneOffExpenses.reduce((s, e) => s + e.amount, 0)
+    const recurringTotalThisMonth = monthlyRecurringTotal
+    const oneOffDailyAvg = daysElapsed > 0 ? oneOffTotal / daysElapsed : 0
+    const predictedOneOff = oneOffTotal + oneOffDailyAvg * daysRemaining
+    const predictedEndOfMonth = recurringTotalThisMonth + predictedOneOff
+    const dailyAvg = oneOffDailyAvg
+    const weeklyAvg = oneOffDailyAvg * 7
+    const byDay: Record<string, number> = {}
+    activeMonthExpenses.forEach((e) => {
+      byDay[e.date] = (byDay[e.date] || 0) + e.amount
+    })
+    const highestDayEntry = Object.entries(byDay).sort(([, a], [, b]) => b - a)[0]
+    return {
+      predictedEndOfMonth,
+      dailyAvg,
+      weeklyAvg,
+      highestDay: highestDayEntry ? { date: highestDayEntry[0], amount: highestDayEntry[1] } : null,
+      daysRemaining,
+    }
+  }, [activeMonth, currentMonth, monthFilter, categoryFilter, activeMonthExpenses, monthlyRecurringTotal])
+
   const clearFilters = () => {
     setCategoryFilter(null)
     setMonthFilter(null)
+  }
+
+  const handleExportCSV = () => {
+    const rows = filteredExpenses.map((e) => ({
+      date: e.date,
+      description: e.description,
+      category: getCategory(e.category).label,
+      amount: e.amount.toFixed(2),
+    }))
+    const header = 'Date,Description,Category,Amount (EUR)\n'
+    const body = rows.map((r) => `${r.date},"${r.description.replace(/"/g, '""')}",${r.category},${r.amount}`).join('\n')
+    const blob = new Blob([header + body], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `expenses-${activeMonth}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const handleLogout = async () => {
@@ -698,15 +770,15 @@ export default function AppPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-zinc-400 text-sm">Loading...</p>
+      <div className="min-h-screen bg-white dark:bg-zinc-950 flex items-center justify-center">
+        <p className="text-zinc-400 dark:text-zinc-500 text-sm">Loading...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <header className="border-b border-zinc-100">
+    <div className="min-h-screen bg-white dark:bg-zinc-950 transition-colors">
+      <header className="border-b border-zinc-100 dark:border-zinc-800">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
@@ -715,28 +787,45 @@ export default function AppPage() {
                   key={s}
                   onClick={() => setSection(s)}
                   className={`px-3 sm:px-4 py-1.5 text-base sm:text-lg font-semibold transition-colors capitalize ${
-                    section === s ? 'text-zinc-900' : 'text-zinc-300 hover:text-zinc-500'
+                    section === s ? 'text-zinc-900 dark:text-zinc-50' : 'text-zinc-300 dark:text-zinc-500 hover:text-zinc-500 dark:hover:text-zinc-300'
                   }`}
                 >
                   {s}
                 </button>
               ))}
             </div>
-            <button
-              onClick={handleLogout}
-              className="text-sm text-zinc-500 hover:text-zinc-700"
-            >
-              Log out
-            </button>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                onClick={toggleDarkMode}
+                className="p-2 rounded-lg text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                title={darkMode ? 'Light mode' : 'Dark mode'}
+              >
+                {darkMode ? (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
+              </button>
+              <button
+                onClick={handleLogout}
+                className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+              >
+                Log out
+              </button>
+            </div>
           </div>
           {section === 'expenses' && (
-            <div className="flex bg-zinc-100 rounded-lg p-1 mt-3">
+            <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-lg p-1 mt-3">
               {['add', 'dashboard', 'recurring'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setView(tab as typeof view)}
                   className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all capitalize ${
-                    view === tab ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
+                    view === tab ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-50 shadow-sm' : 'text-zinc-500 dark:text-zinc-400'
                   }`}
                 >
                   {tab}
@@ -750,31 +839,31 @@ export default function AppPage() {
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {section === 'wealth' && (
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-16 h-16 bg-zinc-100 rounded-2xl flex items-center justify-center mb-6">
-              <svg className="w-8 h-8 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mb-6">
+              <svg className="w-8 h-8 text-zinc-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h2 className="text-xl font-semibold text-zinc-900 mb-2">Wealth Tracker</h2>
-            <p className="text-zinc-500 text-center max-w-sm mb-6">
+            <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 mb-2">Wealth Tracker</h2>
+            <p className="text-zinc-500 dark:text-zinc-400 text-center max-w-sm mb-6">
               Track your net worth, assets, debts, and cash accounts. See your complete financial picture.
             </p>
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-100 rounded-full">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-100 dark:bg-zinc-800 rounded-full">
               <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
-              <span className="text-sm font-medium text-zinc-600">Coming Soon</span>
+              <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Coming Soon</span>
             </div>
             <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-lg opacity-50">
               <Card className="p-4 text-center">
-                <p className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Cash</p>
-                <p className="text-lg font-semibold text-zinc-300 mt-1">€ --</p>
+                <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Cash</p>
+                <p className="text-lg font-semibold text-zinc-300 dark:text-zinc-600 mt-1">€ --</p>
               </Card>
               <Card className="p-4 text-center">
-                <p className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Assets</p>
-                <p className="text-lg font-semibold text-zinc-300 mt-1">€ --</p>
+                <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Assets</p>
+                <p className="text-lg font-semibold text-zinc-300 dark:text-zinc-600 mt-1">€ --</p>
               </Card>
               <Card className="p-4 text-center">
-                <p className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Debts</p>
-                <p className="text-lg font-semibold text-zinc-300 mt-1">€ --</p>
+                <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Debts</p>
+                <p className="text-lg font-semibold text-zinc-300 dark:text-zinc-600 mt-1">€ --</p>
               </Card>
             </div>
           </div>
@@ -783,33 +872,33 @@ export default function AppPage() {
         {section === 'expenses' && view === 'add' && (
           <div className="space-y-8">
             <div className="text-center py-6 sm:py-8">
-              <label className="text-sm text-zinc-400 uppercase tracking-wider font-medium">Amount</label>
+              <label className="text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Amount</label>
               <div className="mt-3 flex items-center justify-center">
-                <span className="text-3xl sm:text-4xl text-zinc-300 mr-2">€</span>
+                <span className="text-3xl sm:text-4xl text-zinc-300 dark:text-zinc-600 mr-2">€</span>
                 <input
                   type="number"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0.00"
-                  className="text-4xl sm:text-6xl font-light text-zinc-900 bg-transparent border-none outline-none w-48 sm:w-64 text-center tabular-nums placeholder:text-zinc-200"
+                  className="text-4xl sm:text-6xl font-light text-zinc-900 dark:text-zinc-50 bg-transparent border-none outline-none w-48 sm:w-64 text-center tabular-nums placeholder:text-zinc-200 dark:placeholder:text-zinc-600"
                   autoFocus
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-sm text-zinc-400 uppercase tracking-wider font-medium">Description</label>
+              <label className="text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Description</label>
               <input
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What did you spend on?"
-                className="mt-2 w-full px-0 py-3 text-lg text-zinc-900 bg-transparent border-b border-zinc-200 outline-none focus:border-zinc-900 transition-colors placeholder:text-zinc-300"
+                className="mt-2 w-full px-0 py-3 text-lg text-zinc-900 dark:text-zinc-100 bg-transparent border-b border-zinc-200 dark:border-zinc-700 outline-none focus:border-zinc-900 dark:focus:border-zinc-100 transition-colors placeholder:text-zinc-300 dark:placeholder:text-zinc-500"
               />
             </div>
 
             <div>
-              <label className="text-sm text-zinc-400 uppercase tracking-wider font-medium">Category</label>
+              <label className="text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Category</label>
               <div className="mt-3 flex flex-wrap gap-2">
                 {categories.map((cat) => (
                   <CategoryPill
@@ -822,7 +911,7 @@ export default function AppPage() {
                 ))}
                 <button
                   onClick={() => setShowNewCategoryModal(true)}
-                  className="px-4 py-2 rounded-full text-sm font-medium bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border-2 border-dashed border-zinc-300"
+                  className="px-4 py-2 rounded-full text-sm font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 border-2 border-dashed border-zinc-300 dark:border-zinc-600"
                 >
                   + New
                 </button>
@@ -830,20 +919,20 @@ export default function AppPage() {
             </div>
 
             <div>
-              <label className="text-sm text-zinc-400 uppercase tracking-wider font-medium">Date</label>
+              <label className="text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Date</label>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="mt-2 w-full px-0 py-3 text-lg text-zinc-900 bg-transparent border-b border-zinc-200 outline-none focus:border-zinc-900 transition-colors"
+                className="mt-2 w-full px-0 py-3 text-lg text-zinc-900 dark:text-zinc-100 bg-transparent border-b border-zinc-200 dark:border-zinc-700 outline-none focus:border-zinc-900 dark:focus:border-zinc-100 transition-colors"
               />
             </div>
 
             <Card className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-zinc-900">Make it recurring</p>
-                  <p className="text-xs text-zinc-400 mt-0.5">Automatically repeat every month</p>
+                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Make it recurring</p>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">Automatically repeat every month</p>
                 </div>
                 <Toggle checked={isRecurring} onChange={setIsRecurring} />
               </div>
@@ -859,7 +948,7 @@ export default function AppPage() {
             </Button>
 
             {recentExpenses.length > 0 && (
-              <div className="pt-8 border-t border-zinc-100">
+              <div className="pt-8 border-t border-zinc-100 dark:border-zinc-800">
                 <SectionTitle>Recent</SectionTitle>
                 <div className="space-y-3">
                   {recentExpenses.map((exp) => {
@@ -868,12 +957,12 @@ export default function AppPage() {
                       <div key={exp.id} className="flex items-center justify-between py-2">
                         <div className="flex items-center gap-3">
                           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
-                          <span className="text-zinc-900">{exp.description}</span>
+                          <span className="text-zinc-900 dark:text-zinc-100">{exp.description}</span>
                           {exp.recurringId && (
-                            <span className="px-1.5 py-0.5 bg-zinc-100 text-zinc-500 text-[10px] font-medium rounded">REC</span>
+                            <span className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 text-[10px] font-medium rounded">REC</span>
                           )}
                         </div>
-                        <span className="text-zinc-500 tabular-nums">{formatCurrency(exp.amount)}</span>
+                        <span className="text-zinc-500 dark:text-zinc-400 tabular-nums">{formatCurrency(exp.amount)}</span>
                       </div>
                     )
                   })}
@@ -887,20 +976,20 @@ export default function AppPage() {
           <div className="space-y-10">
             {hasFilters && (
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm text-zinc-400">Filters:</span>
+                <span className="text-sm text-zinc-400 dark:text-zinc-500">Filters:</span>
                 {monthFilter && <FilterPill label={formatFullMonth(monthFilter)} onClear={() => setMonthFilter(null)} />}
                 {categoryFilter && <FilterPill label={getCategory(categoryFilter).label} onClear={() => setCategoryFilter(null)} />}
-                <button onClick={clearFilters} className="text-sm text-zinc-400 hover:text-zinc-600 ml-2">Clear all</button>
+                <button onClick={clearFilters} className="text-sm text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 ml-2">Clear all</button>
               </div>
             )}
 
             <div className="text-center py-4 sm:py-6">
-              <p className="text-sm text-zinc-400 uppercase tracking-wider font-medium">
+              <p className="text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">
                 {monthFilter ? formatFullMonth(monthFilter) : 'This Month'}
               </p>
-              <p className="mt-2 text-4xl sm:text-5xl font-semibold text-zinc-900 tabular-nums">{formatCurrency(activeMonthTotal)}</p>
+              <p className="mt-2 text-4xl sm:text-5xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(activeMonthTotal)}</p>
               {!monthFilter && (
-                <p className={`mt-2 text-sm font-medium ${+percentChange > 0 ? 'text-red-500' : +percentChange < 0 ? 'text-green-500' : 'text-zinc-400'}`}>
+                <p className={`mt-2 text-sm font-medium ${+percentChange > 0 ? 'text-red-500' : +percentChange < 0 ? 'text-green-500' : 'text-zinc-400 dark:text-zinc-500'}`}>
                   {+percentChange > 0 ? '↑' : +percentChange < 0 ? '↓' : ''} {Math.abs(+percentChange)}% vs last month
                 </p>
               )}
@@ -909,8 +998,38 @@ export default function AppPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <MetricCard label="Previous Month" value={formatCurrency(lastMonthTotal)} />
               <MetricCard label="Transactions" value={activeMonthExpenses.length.toString()} />
-              <MetricCard label="Average" value={formatCurrency(activeMonthExpenses.length > 0 ? activeMonthTotal / activeMonthExpenses.length : 0)} />
+              <MetricCard label="Avg per expense" value={formatCurrency(activeMonthExpenses.length > 0 ? activeMonthTotal / activeMonthExpenses.length : 0)} />
             </div>
+
+            {predictionMetrics && (
+              <div>
+                <SectionTitle>Insights & prediction</SectionTitle>
+                <Card className="p-4 sm:p-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Predicted end of month</p>
+                      <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.predictedEndOfMonth)}</p>
+                      <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">Recurring + projected one-off · {predictionMetrics.daysRemaining} days left</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Daily avg (one-off)</p>
+                      <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.dailyAvg)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Weekly avg (one-off)</p>
+                      <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.weeklyAvg)}</p>
+                    </div>
+                    {predictionMetrics.highestDay && (
+                      <div>
+                        <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Highest spending day</p>
+                        <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.highestDay.amount)}</p>
+                        <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">{new Date(predictionMetrics.highestDay.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
+            )}
 
             <div>
               <SectionTitle>6-Month Trend</SectionTitle>
@@ -929,10 +1048,10 @@ export default function AppPage() {
                         onKeyDown={(e) => e.key === 'Enter' && handleMonthClick(month)}
                         className="flex-1 flex flex-col items-center gap-2 sm:gap-3 group min-w-0 cursor-pointer"
                       >
-                        <span className="text-[10px] sm:text-xs text-zinc-400 tabular-nums group-hover:text-zinc-600 truncate w-full text-center hidden sm:block">{formatCurrency(total)}</span>
+                        <span className="text-[10px] sm:text-xs text-zinc-400 dark:text-zinc-500 tabular-nums group-hover:text-zinc-600 dark:group-hover:text-zinc-400 truncate w-full text-center hidden sm:block">{formatCurrency(total)}</span>
                         <div className="w-full h-36 sm:h-48 flex flex-col justify-end items-center">
                           <div
-                            className={`w-full max-w-12 sm:max-w-16 flex flex-col rounded-t-lg overflow-hidden transition-all cursor-pointer ${isFiltered ? 'ring-2 ring-zinc-900 ring-offset-2' : ''}`}
+                            className={`w-full max-w-12 sm:max-w-16 flex flex-col rounded-t-lg overflow-hidden transition-all cursor-pointer ${isFiltered ? 'ring-2 ring-zinc-900 dark:ring-zinc-100 ring-offset-2 dark:ring-offset-zinc-900' : ''}`}
                             style={{ height: `${barHeightPct}%`, minHeight: 20 }}
                           >
                             {[...segments].reverse().map(({ category, amount }) => {
@@ -950,7 +1069,7 @@ export default function AppPage() {
                             })}
                           </div>
                         </div>
-                        <span className={`text-[10px] sm:text-xs font-medium whitespace-nowrap ${isFiltered || isActive ? 'text-zinc-900' : 'text-zinc-400 group-hover:text-zinc-600'}`}>
+                        <span className={`text-[10px] sm:text-xs font-medium whitespace-nowrap ${isFiltered || isActive ? 'text-zinc-900 dark:text-zinc-50' : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-400'}`}>
                           {formatShortMonth(month)}
                         </span>
                       </div>
@@ -973,7 +1092,7 @@ export default function AppPage() {
                         key={category.id}
                         onClick={() => handleCategoryClick(category.id)}
                         className={`relative overflow-hidden rounded-2xl p-4 text-left transition-all ${
-                          isFiltered ? 'ring-2 ring-zinc-900 ring-offset-2' : ''
+                          isFiltered ? 'ring-2 ring-zinc-900 dark:ring-zinc-100 ring-offset-2 dark:ring-offset-zinc-900' : ''
                         } ${isOther ? 'opacity-40' : 'hover:scale-[1.02]'}`}
                         style={{ backgroundColor: `${category.color}10` }}
                       >
@@ -982,13 +1101,13 @@ export default function AppPage() {
                           <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold mb-3" style={{ backgroundColor: category.color }}>
                             {category.label.slice(0, 2).toUpperCase()}
                           </div>
-                          <p className="text-xs text-zinc-500 mb-1">{category.label}</p>
-                          <p className="text-lg font-bold text-zinc-900 tabular-nums">{formatCurrency(amount)}</p>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">{category.label}</p>
+                          <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(amount)}</p>
                           <div className="flex items-center gap-2 mt-2">
-                            <div className="flex-1 h-1 bg-zinc-200 rounded-full overflow-hidden">
+                            <div className="flex-1 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
                               <div className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: category.color }} />
                             </div>
-                            <span className="text-xs text-zinc-400 tabular-nums">{percent.toFixed(0)}%</span>
+                            <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">{percent.toFixed(0)}%</span>
                           </div>
                         </div>
                       </button>
@@ -999,7 +1118,7 @@ export default function AppPage() {
             )}
 
             {!hasFilters && categoryBreakdown[0] && (
-              <Card className="bg-gradient-to-br from-zinc-900 to-zinc-800 border-0 p-6 text-white">
+              <Card className="bg-gradient-to-br from-zinc-900 to-zinc-800 dark:from-zinc-800 dark:to-zinc-900 border-0 p-6 text-white">
                 <h2 className="text-xs text-zinc-400 uppercase tracking-wider font-medium mb-3">Insight</h2>
                 <p className="text-lg">
                   <span className="font-semibold">{categoryBreakdown[0].category.label}</span> is your biggest expense this month, accounting for{' '}
@@ -1009,10 +1128,23 @@ export default function AppPage() {
             )}
 
             <div>
-              <SectionTitle>{categoryFilter || monthFilter ? 'Filtered Transactions' : 'All Transactions'}</SectionTitle>
+              <SectionTitle
+                action={
+                  filteredExpenses.length > 0 ? (
+                    <button
+                      onClick={handleExportCSV}
+                      className="text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+                    >
+                      Export CSV
+                    </button>
+                  ) : undefined
+                }
+              >
+                {categoryFilter || monthFilter ? 'Filtered Transactions' : 'All Transactions'}
+              </SectionTitle>
               <Card className="overflow-hidden">
                 {filteredExpenses.length === 0 ? (
-                  <div className="px-5 py-8 text-center text-zinc-400">No transactions found</div>
+                  <div className="px-5 py-8 text-center text-zinc-400 dark:text-zinc-500">No transactions found</div>
                 ) : (
                   filteredExpenses.map((exp, i, arr) => (
                     <TransactionRow
@@ -1033,17 +1165,17 @@ export default function AppPage() {
         {section === 'expenses' && view === 'recurring' && (
           <div className="space-y-8">
             <div className="text-center py-4 sm:py-6">
-              <p className="text-sm text-zinc-400 uppercase tracking-wider font-medium">Monthly Recurring</p>
-              <p className="mt-2 text-3xl sm:text-4xl font-semibold text-zinc-900 tabular-nums">{formatCurrency(monthlyRecurringTotal)}</p>
-              <p className="mt-1 text-sm text-zinc-400">{recurringExpenses.filter((r) => r.isActive).length} active expenses</p>
+              <p className="text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Monthly Recurring</p>
+              <p className="mt-2 text-3xl sm:text-4xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(monthlyRecurringTotal)}</p>
+              <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-500">{recurringExpenses.filter((r) => r.isActive).length} active expenses</p>
             </div>
 
             <div>
               <SectionTitle>Recurring Expenses</SectionTitle>
               {recurringExpenses.length === 0 ? (
                 <Card className="p-8 text-center">
-                  <p className="text-zinc-400">No recurring expenses yet</p>
-                  <p className="text-sm text-zinc-400 mt-1">Add one from the Add tab</p>
+                  <p className="text-zinc-400 dark:text-zinc-500">No recurring expenses yet</p>
+                  <p className="text-sm text-zinc-400 dark:text-zinc-500 mt-1">Add one from the Add tab</p>
                 </Card>
               ) : (
                 <div className="space-y-3">
@@ -1060,17 +1192,17 @@ export default function AppPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-medium text-zinc-900 truncate">{recurring.description}</p>
+                              <p className="font-medium text-zinc-900 dark:text-zinc-100 truncate">{recurring.description}</p>
                               {!recurring.isActive && (
-                                <span className="px-1.5 py-0.5 bg-zinc-200 text-zinc-500 text-[10px] font-medium rounded">PAUSED</span>
+                                <span className="px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 text-[10px] font-medium rounded">PAUSED</span>
                               )}
                             </div>
-                            <p className="text-xs sm:text-sm text-zinc-400">
+                            <p className="text-xs sm:text-sm text-zinc-400 dark:text-zinc-500">
                               {recurring.dayOfMonth}{getOrdinalSuffix(recurring.dayOfMonth)} of month • {cat.label}
                             </p>
-                            <p className="text-base sm:text-lg font-semibold text-zinc-900 tabular-nums mt-1 sm:hidden">{formatCurrency(recurring.amount)}</p>
+                            <p className="text-base sm:text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums mt-1 sm:hidden">{formatCurrency(recurring.amount)}</p>
                           </div>
-                          <p className="text-lg font-semibold text-zinc-900 tabular-nums hidden sm:block">{formatCurrency(recurring.amount)}</p>
+                          <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums hidden sm:block">{formatCurrency(recurring.amount)}</p>
                         </div>
                         <div className="flex gap-2 mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-zinc-100">
                           <Button variant="secondary" size="small" onClick={() => openEditRecurring(recurring)} className="flex-1">Edit</Button>
@@ -1086,9 +1218,9 @@ export default function AppPage() {
               )}
             </div>
 
-            <Card className="p-5 bg-blue-50 border-blue-100">
-              <p className="text-sm text-blue-900 font-medium">Tip</p>
-              <p className="text-sm text-blue-700 mt-1">
+            <Card className="p-5 bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900/50">
+              <p className="text-sm text-blue-900 dark:text-blue-200 font-medium">Tip</p>
+              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
                 Recurring expenses are automatically created each month on the specified day. You can pause or modify them anytime.
               </p>
             </Card>
@@ -1100,7 +1232,7 @@ export default function AppPage() {
         <div className="space-y-4">
           <Input label="Category Name" value={newCategoryName} onChange={setNewCategoryName} placeholder="e.g., Travel" />
           <div>
-            <label className="block text-sm text-zinc-400 uppercase tracking-wider font-medium mb-2">Color</label>
+            <label className="block text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium mb-2">Color</label>
             <div className="flex flex-wrap gap-2">
               {CATEGORY_COLORS.map((color) => (
                 <button
@@ -1139,8 +1271,8 @@ export default function AppPage() {
           <Select label="Category" value={expenseCategory} onChange={setExpenseCategory} options={categories.map((c) => ({ value: c.id, label: c.label }))} />
           <Input label="Date" type="date" value={expenseDate} onChange={setExpenseDate} />
           {editingExpense?.recurringId && (
-            <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
-              <p className="text-xs text-amber-800">
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-xl">
+              <p className="text-xs text-amber-800 dark:text-amber-200">
                 This is a recurring expense. Editing only changes this specific transaction, not future ones.
               </p>
             </div>
@@ -1155,14 +1287,14 @@ export default function AppPage() {
 
       <Modal isOpen={!!deletingRecurring} onClose={() => setDeletingRecurring(null)} title="Delete Recurring Expense">
         <div className="space-y-4">
-          <div className="p-4 bg-zinc-50 rounded-xl">
-            <p className="font-medium text-zinc-900">{deletingRecurring?.description}</p>
-            <p className="text-sm text-zinc-500 mt-1">
+          <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-xl">
+            <p className="font-medium text-zinc-900 dark:text-zinc-100">{deletingRecurring?.description}</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
               {formatCurrency(deletingRecurring?.amount || 0)} on the {deletingRecurring?.dayOfMonth}{getOrdinalSuffix(deletingRecurring?.dayOfMonth || 1)} of each month
             </p>
           </div>
-          <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">
-            <p className="text-sm text-amber-800">
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-xl">
+            <p className="text-sm text-amber-800 dark:text-amber-200">
               <strong>Note:</strong> This will only stop future charges. Past expenses from this recurring charge will remain in your history.
             </p>
           </div>
