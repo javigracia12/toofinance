@@ -1,5 +1,6 @@
 export const DEFAULT_CATEGORIES = [
-  { id: 'food', label: 'Food & Dining', color: '#f97316', is_custom: false },
+  { id: 'food', label: 'Food', color: '#f97316', is_custom: false },
+  { id: 'dining', label: 'Dining', color: '#ea580c', is_custom: false },
   { id: 'transport', label: 'Transport', color: '#3b82f6', is_custom: false },
   { id: 'shopping', label: 'Shopping', color: '#ec4899', is_custom: false },
   { id: 'entertainment', label: 'Entertainment', color: '#8b5cf6', is_custom: false },

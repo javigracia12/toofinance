@@ -608,22 +608,16 @@ export default function AppPage() {
     }
   }, [activeMonth, currentMonth, monthFilter, categoryFilter, activeMonthExpenses, monthlyRecurringTotal, monthlyRecurringExRent, expenses, lastMonthKey, categories])
 
-  const dailySpendingPoints = useMemo(() => {
+  const dailySpendingBars = useMemo(() => {
     if (!predictionMetrics) return []
     const daily = predictionMetrics.dailySpending
     if (daily.length === 0) return []
-    const max = Math.max(...daily.map((d) => d.amount), 1)
-    return daily.map((point, index) => {
-      const x = daily.length > 1 ? (index / (daily.length - 1)) * 100 : 0
-      const y = max > 0 ? 100 - (point.amount / max) * 100 : 100
-      return { ...point, x, y }
-    })
+    const maxAmount = Math.max(...daily.map((d) => d.amount), 1)
+    return daily.map((d) => ({
+      ...d,
+      heightPct: maxAmount > 0 ? Math.max((d.amount / maxAmount) * 100, 2) : 2,
+    }))
   }, [predictionMetrics])
-
-  const dailySpendingPath = useMemo(
-    () => (dailySpendingPoints.length > 0 ? dailySpendingPoints.map((p) => `${p.x},${p.y}`).join(' ') : ''),
-    [dailySpendingPoints]
-  )
 
   const vsLastMonthDiff = predictionMetrics?.velocityDiff ?? 0
   const vsLastMonthClass =
@@ -1134,19 +1128,6 @@ export default function AppPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-              <MetricCard label="Previous Month" value={formatCurrency(lastMonthTotal)} />
-              <MetricCard label="Transactions" value={hasFilters ? filteredExpenses.length.toString() : activeMonthExpenses.length.toString()} />
-              <MetricCard
-                label="Avg per expense"
-                value={formatCurrency(
-                  hasFilters
-                    ? (filteredExpenses.length > 0 ? filteredTotal / filteredExpenses.length : 0)
-                    : (activeMonthExpenses.length > 0 ? activeMonthTotal / activeMonthExpenses.length : 0)
-                )}
-              />
-            </div>
-
             {predictionMetrics && (
               <div className="space-y-6">
                 <div>
@@ -1201,44 +1182,38 @@ export default function AppPage() {
                 <div>
                   <SectionTitle>Daily Spending</SectionTitle>
                   <Card className="p-4 sm:p-5">
-                    {dailySpendingPoints.length === 0 ? (
-                      <div className="text-sm text-zinc-400 dark:text-zinc-500 text-center">No spending recorded yet this month.</div>
+                    {dailySpendingBars.length === 0 ? (
+                      <div className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-8">No spending recorded yet this month.</div>
                     ) : (
                       <>
-                        <div className="relative w-full h-36 sm:h-40">
-                          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden>
-                            <polyline
-                              points={dailySpendingPath}
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="text-blue-500 dark:text-blue-400"
-                            />
-                          </svg>
-                          {dailySpendingPoints.map((point) => {
-                            const isToday = point.dayNum === predictionMetrics.daysElapsed
-                            const isSelected = dayFilter && normalizeDate(dayFilter) === normalizeDate(point.date)
+                        <div className="flex items-end justify-between gap-0.5 sm:gap-1 h-32 sm:h-40">
+                          {dailySpendingBars.map((bar) => {
+                            const isToday = bar.dayNum === predictionMetrics.daysElapsed
+                            const isSelected = dayFilter && normalizeDate(dayFilter) === normalizeDate(bar.date)
                             return (
                               <button
                                 type="button"
-                                key={point.date}
-                                className="absolute -translate-x-1/2 -translate-y-1/2 focus:outline-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-blue-500/20 z-10"
-                                style={{ left: `${point.x}%`, top: `${point.y}%` }}
-                                onClick={() => handleDayClick(point.date)}
+                                key={bar.date}
+                                onClick={() => handleDayClick(bar.date)}
+                                className="flex-1 flex flex-col items-center justify-end group min-w-0 h-full"
                                 aria-pressed={!!isSelected}
-                                aria-label={`Filter by day ${point.dayNum}`}
-                                title={`Day ${point.dayNum}: ${formatCurrency(point.amount)}`}
+                                aria-label={`Day ${bar.dayNum}: ${formatCurrency(bar.amount)}`}
+                                title={`Day ${bar.dayNum}: ${formatCurrency(bar.amount)}`}
                               >
-                                <span
-                                  className={`block w-2.5 h-2.5 rounded-full border-2 transition-colors ${
+                                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity mb-1 tabular-nums truncate w-full text-center">
+                                  {bar.amount > 0 ? formatCurrency(bar.amount) : '—'}
+                                </span>
+                                <div
+                                  className={`w-full max-w-[14px] sm:max-w-[18px] rounded-t-md transition-all duration-200 ${
                                     isSelected
-                                      ? 'bg-blue-500 border-blue-500 dark:bg-blue-400 dark:border-blue-400'
+                                      ? 'ring-2 ring-zinc-900 dark:ring-zinc-100 ring-offset-2 dark:ring-offset-zinc-900 bg-zinc-900 dark:bg-zinc-100'
                                       : isToday
-                                        ? 'bg-white border-blue-500 dark:bg-zinc-900 dark:border-blue-400'
-                                        : 'bg-white border-zinc-300 dark:bg-zinc-900 dark:border-zinc-600'
+                                        ? 'bg-blue-500 dark:bg-blue-400'
+                                        : bar.amount > 0
+                                          ? 'bg-zinc-300 dark:bg-zinc-600 hover:bg-zinc-400 dark:hover:bg-zinc-500'
+                                          : 'bg-zinc-100 dark:bg-zinc-800'
                                   }`}
+                                  style={{ height: `${bar.heightPct}%`, minHeight: 4 }}
                                 />
                               </button>
                             )
@@ -1250,7 +1225,7 @@ export default function AppPage() {
                         </div>
                         {dayFilter && (
                           <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400 text-center">
-                            Filtering by {formatDayLabel(dayFilter)} · click point again to clear
+                            Filtering by {formatDayLabel(dayFilter)} · click bar again to clear
                           </p>
                         )}
                       </>
