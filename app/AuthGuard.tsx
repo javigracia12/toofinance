@@ -16,7 +16,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     let cancelled = false
 
     async function check() {
-      const isApp = pathname?.startsWith('/app') || pathname === '/'
+      const isAppProtected = pathname?.startsWith('/app')
       const isAuthPath = pathname ? AUTH_PATHS.some((p) => pathname.startsWith(p)) : false
 
       const {
@@ -25,7 +25,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
       if (cancelled) return
 
-      if (isApp && !session) {
+      if (isAppProtected && !session) {
         router.replace('/login')
         return
       }
@@ -43,7 +43,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, router, supabase.auth])
 
-  if (!ready && (pathname?.startsWith('/app') || pathname === '/')) {
+  if (!ready && pathname?.startsWith('/app')) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <p className="text-zinc-400 text-sm">Loading...</p>
