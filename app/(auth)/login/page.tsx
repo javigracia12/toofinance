@@ -63,6 +63,8 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            aria-invalid={!!error}
+            aria-describedby={error ? 'login-error' : undefined}
             className="w-full px-4 py-3 text-zinc-900 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 transition-colors"
             placeholder="you@example.com"
           />
@@ -84,6 +86,8 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              aria-invalid={!!error}
+              aria-describedby={error ? 'login-error' : undefined}
               className="w-full px-4 py-3 pr-12 text-zinc-900 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 transition-colors"
             />
             <button
@@ -97,7 +101,7 @@ export default function LoginPage() {
         </div>
 
         {error && (
-          <div className="p-3 bg-red-50 border border-red-100 rounded-xl">
+          <div id="login-error" className="p-3 bg-red-50 border border-red-100 rounded-xl" role="alert">
             <p className="text-sm text-red-700">{error}</p>
           </div>
         )}

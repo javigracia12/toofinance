@@ -1,3 +1,6 @@
+export const LOCALE = 'en-US'
+export const CURRENCY = 'EUR'
+
 export const DEFAULT_CATEGORIES = [
   { id: 'food', label: 'Food', color: '#f97316', is_custom: false },
   { id: 'dining', label: 'Dining', color: '#ea580c', is_custom: false },

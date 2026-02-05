@@ -1,294 +1,33 @@
 'use client'
 
-import { useState, useMemo, ReactNode, useEffect } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { DEFAULT_CATEGORIES, CATEGORY_COLORS } from '@/lib/constants'
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-type Expense = {
-  id: string
-  amount: number
-  description: string
-  category: string
-  date: string
-  recurringId?: string
-}
-
-type RecurringExpense = {
-  id: string
-  amount: number
-  description: string
-  category: string
-  dayOfMonth: number
-  isActive: boolean
-  createdAt: string
-}
-
-type Category = {
-  id: string
-  label: string
-  color: string
-  isCustom?: boolean
-}
-
-// ============================================================================
-// HELPERS
-// ============================================================================
-
-const formatCurrency = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EUR' }).format(n)
-
-const getMonthKey = (date: string) => (date || '').slice(0, 7)
-const normalizeDate = (date: string) => (date || '').split('T')[0]
-
-const formatShortMonth = (key: string) => {
-  const [y, m] = key.split('-')
-  return new Date(+y, +m - 1).toLocaleDateString('en-US', { month: 'short' })
-}
-
-const formatFullMonth = (key: string) => {
-  const [y, m] = key.split('-')
-  return new Date(+y, +m - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-}
-
-const formatDayLabel = (date: string) =>
-  new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-
-const formatVsLastMonth = (value: number) => `${value > 0 ? '+' : ''}${value.toFixed(0)}% vs last month`
-
-const getOrdinalSuffix = (day: number) => {
-  if (day > 3 && day < 21) return 'th'
-  switch (day % 10) {
-    case 1: return 'st'
-    case 2: return 'nd'
-    case 3: return 'rd'
-    default: return 'th'
-  }
-}
-
-// ============================================================================
-// UI COMPONENTS
-// ============================================================================
-
-function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={`bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl ${className}`}>
-      {children}
-    </div>
-  )
-}
-
-function MetricCard({ label, value, subtext }: { label: string; value: string; subtext?: ReactNode }) {
-  return (
-    <Card className="p-5">
-      <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{value}</p>
-      {subtext && <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">{subtext}</p>}
-    </Card>
-  )
-}
-
-function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
-  return (
-    <div className="flex items-center justify-between mb-4">
-      <h2 className="text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">{children}</h2>
-      {action}
-    </div>
-  )
-}
-
-function FilterPill({ label, onClear }: { label: string; onClear: () => void }) {
-  return (
-    <button
-      onClick={onClear}
-      className="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-medium rounded-full hover:bg-zinc-700 dark:hover:bg-white transition-colors"
-    >
-      {label}
-      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
-  )
-}
-
-function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
-  return (
-    <label className="flex items-center gap-3 cursor-pointer">
-      <div
-        onClick={() => onChange(!checked)}
-        className={`w-12 h-7 rounded-full transition-colors relative ${checked ? 'bg-zinc-900' : 'bg-zinc-200'}`}
-      >
-        <div
-          className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-            checked ? 'translate-x-6' : 'translate-x-1'
-          }`}
-        />
-      </div>
-      {label && <span className="text-sm text-zinc-700">{label}</span>}
-    </label>
-  )
-}
-
-function CategoryPill({
-  category,
-  selected,
-  onClick,
-  onEdit,
-}: {
-  category: Category
-  selected: boolean
-  onClick: () => void
-  onEdit?: () => void
-}) {
-  return (
-    <div className="relative group">
-      <button
-        onClick={onClick}
-        className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-          selected ? 'text-white shadow-lg' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
-        }`}
-        style={selected ? { backgroundColor: category.color } : {}}
-      >
-        {category.label}
-      </button>
-      {onEdit && !selected && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onEdit() }}
-          className="absolute -top-1 -right-1 w-5 h-5 bg-zinc-500 hover:bg-zinc-700 text-white rounded-full text-[10px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-          title="Edit category"
-        >
-          ✎
-        </button>
-      )}
-    </div>
-  )
-}
-
-function TransactionRow({
-  expense,
-  category,
-  showBorder = true,
-  isRecurring = false,
-  onEdit,
-}: {
-  expense: Expense
-  category: Category
-  showBorder?: boolean
-  isRecurring?: boolean
-  onEdit?: () => void
-}) {
-  return (
-    <div
-      className={`flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 group ${showBorder ? 'border-b border-zinc-100 dark:border-zinc-800' : ''} ${onEdit ? 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer' : ''}`}
-      onClick={onEdit}
-    >
-      <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-        <div
-          className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-white text-xs font-medium flex-shrink-0"
-          style={{ backgroundColor: category.color }}
-        >
-          {category.label.slice(0, 2).toUpperCase()}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{expense.description}</p>
-            {isRecurring && (
-              <span className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 text-[10px] font-medium rounded flex-shrink-0 hidden sm:inline">REC</span>
-            )}
-          </div>
-          <p className="text-xs text-zinc-400 dark:text-zinc-500">
-            {new Date(expense.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-          </p>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 ml-2">
-        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(expense.amount)}</p>
-        {onEdit && (
-          <span className="text-xs text-zinc-400 dark:text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:inline">Edit →</span>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: ReactNode }) {
-  if (!isOpen) return null
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 dark:bg-black/60" onClick={onClose} />
-      <div className="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-auto border border-zinc-100 dark:border-zinc-800">
-        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 mb-4">{title}</h3>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function Button({
-  children, onClick, disabled = false, variant = 'primary', size = 'default', className = '',
-}: {
-  children: ReactNode; onClick?: () => void; disabled?: boolean; variant?: 'primary' | 'secondary' | 'danger'; size?: 'default' | 'small'; className?: string
-}) {
-  const baseStyles = 'font-medium rounded-xl transition-all'
-  const sizeStyles = size === 'small' ? 'px-3 py-2 text-xs' : 'px-4 py-3 text-sm'
-  const variants = {
-    primary: 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white disabled:bg-zinc-200 dark:disabled:bg-zinc-700 disabled:text-zinc-400 dark:disabled:text-zinc-500',
-    secondary: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700',
-    danger: 'bg-red-500 text-white hover:bg-red-600',
-  }
-  return (
-    <button onClick={onClick} disabled={disabled} className={`${baseStyles} ${sizeStyles} ${variants[variant]} ${className}`}>
-      {children}
-    </button>
-  )
-}
-
-function Input({
-  label, type = 'text', value, onChange, placeholder, className = '',
-}: {
-  label?: string; type?: string; value: string; onChange: (value: string) => void; placeholder?: string; className?: string
-}) {
-  return (
-    <div className={className}>
-      {label && <label className="block text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium mb-2">{label}</label>}
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onWheel={type === 'number' ? (e) => e.currentTarget.blur() : undefined}
-        placeholder={placeholder}
-        className="w-full px-4 py-3 text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-colors placeholder:text-zinc-300 dark:placeholder:text-zinc-500"
-      />
-    </div>
-  )
-}
-
-function Select({
-  label, value, onChange, options,
-}: {
-  label?: string; value: string | number; onChange: (value: string) => void; options: { value: string | number; label: string }[]
-}) {
-  return (
-    <div>
-      {label && <label className="block text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium mb-2">{label}</label>}
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-colors"
-      >
-        {options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-      </select>
-    </div>
-  )
-}
-
-// ============================================================================
-// MAIN APP
-// ============================================================================
+import { DEFAULT_CATEGORIES, CATEGORY_COLORS, CURRENCY } from '@/lib/constants'
+import type { Expense, RecurringExpense, Category } from '@/lib/types'
+import {
+  formatCurrency,
+  getMonthKey,
+  normalizeDate,
+  formatShortMonth,
+  formatFullMonth,
+  formatDayLabel,
+  formatVsLastMonth,
+  getOrdinalSuffix,
+} from '@/lib/format'
+import { isRentCategory, sortExpenses, getDayOptions } from '@/lib/expense-utils'
+import {
+  Card,
+  SectionTitle,
+  FilterPill,
+  Toggle,
+  Button,
+  Input,
+  Select,
+} from '@/app/app/components/ui'
+import { CategoryPill } from '@/app/app/components/CategoryPill'
+import { TransactionRow } from '@/app/app/components/TransactionRow'
+import { Modal } from '@/app/app/components/Modal'
 
 export default function AppPage() {
   const router = useRouter()
@@ -303,6 +42,8 @@ export default function AppPage() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [monthFilter, setMonthFilter] = useState<string | null>(null)
   const [dayFilter, setDayFilter] = useState<string | null>(null)
+  const [transactionSort, setTransactionSort] = useState<'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'category-asc' | 'category-desc'>('date-desc')
+  const dayOptions = useMemo(() => getDayOptions(), [])
 
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
@@ -331,6 +72,9 @@ export default function AppPage() {
   const [expenseDescription, setExpenseDescription] = useState('')
   const [expenseCategory, setExpenseCategory] = useState('')
   const [expenseDate, setExpenseDate] = useState('')
+
+  const [mutationError, setMutationError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const [darkMode, setDarkMode] = useState(false)
   useEffect(() => {
@@ -502,6 +246,11 @@ export default function AppPage() {
       .sort((a, b) => b.amount - a.amount)
   }, [filteredExpenses, categories])
 
+  const sortedExpenses = useMemo(
+    () => sortExpenses(filteredExpenses, transactionSort, getCategory),
+    [filteredExpenses, transactionSort, categories]
+  )
+
   const recentExpenses = useMemo(
     () => [...expenses].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5),
     [expenses]
@@ -511,17 +260,8 @@ export default function AppPage() {
   const hasFilters = categoryFilter || monthFilter || dayFilter
   const monthlyRecurringTotal = recurringExpenses.filter((r) => r.isActive).reduce((sum, r) => sum + r.amount, 0)
 
-  // Helper to check if a category is rent/housing (fixed expense)
-  const isRentCategory = (catId: string): boolean => {
-    const cat = categories.find((c) => c.id === catId)
-    if (!cat) return false
-    const label = cat.label.toLowerCase()
-    const id = catId.toLowerCase()
-    return label.includes('rent') || label.includes('alquiler') || label.includes('housing') || label.includes('hipoteca') || label.includes('mortgage') || id.includes('rent') || id.includes('housing')
-  }
-
-  // Recurring total excluding rent
-  const monthlyRecurringExRent = recurringExpenses.filter((r) => r.isActive && !isRentCategory(r.category)).reduce((sum, r) => sum + r.amount, 0)
+  const isRent = (catId: string) => isRentCategory(catId, categories)
+  const monthlyRecurringExRent = recurringExpenses.filter((r) => r.isActive && !isRent(r.category)).reduce((sum, r) => sum + r.amount, 0)
 
   // Predictions & extra metrics (current month only, no filters). Recurring = full month, not scaled. One-off = scaled.
   const predictionMetrics = useMemo(() => {
@@ -534,7 +274,7 @@ export default function AppPage() {
 
     // Filter out rent for variable spending metrics
     const oneOffExpenses = activeMonthExpenses.filter((e) => !e.recurringId)
-    const oneOffExRent = oneOffExpenses.filter((e) => !isRentCategory(e.category))
+    const oneOffExRent = oneOffExpenses.filter((e) => !isRent(e.category))
     const oneOffTotal = oneOffExpenses.reduce((s, e) => s + e.amount, 0)
     const oneOffTotalExRent = oneOffExRent.reduce((s, e) => s + e.amount, 0)
 
@@ -549,12 +289,10 @@ export default function AppPage() {
     const predictedOneOffExRent = oneOffTotalExRent + dailyAvgExRent * daysRemaining
     const predictedExRent = monthlyRecurringExRent + predictedOneOffExRent
 
-    // Highest spending day
     const byDay: Record<string, number> = {}
     activeMonthExpenses.forEach((e) => {
       byDay[e.date] = (byDay[e.date] || 0) + e.amount
     })
-    const highestDayEntry = Object.entries(byDay).sort(([, a], [, b]) => b - a)[0]
 
     // Daily spending data for chart
     const dailySpending: { date: string; amount: number; dayNum: number }[] = []
@@ -580,7 +318,7 @@ export default function AppPage() {
       const dayOfWeek = new Date(y, m - 1, d).getDay()
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
       const dayAmount = activeMonthExpenses
-        .filter((e) => e.date === dateStr && !isRentCategory(e.category))
+        .filter((e) => e.date === dateStr && !isRent(e.category))
         .reduce((s, e) => s + e.amount, 0)
       if (isWeekend) {
         weekendTotal += dayAmount
@@ -598,7 +336,6 @@ export default function AppPage() {
       predictedExRent,
       dailyAvgExRent,
       weeklyAvgExRent,
-      highestDay: highestDayEntry ? { date: highestDayEntry[0], amount: highestDayEntry[1] } : null,
       daysRemaining,
       daysElapsed,
       dailySpending,
@@ -641,7 +378,7 @@ export default function AppPage() {
       category: getCategory(e.category).label,
       amount: e.amount.toFixed(2),
     }))
-    const header = 'Date,Description,Category,Amount (EUR)\n'
+    const header = `Date,Description,Category,Amount (${CURRENCY})\n`
     const body = rows.map((r) => `${r.date},"${r.description.replace(/"/g, '""')}",${r.category},${r.amount}`).join('\n')
     const blob = new Blob([header + body], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -660,9 +397,11 @@ export default function AppPage() {
 
   const handleAddExpense = async () => {
     if (!amount || !description) return
+    setMutationError(null)
+    setSaving(true)
 
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) { setSaving(false); return }
 
     if (isRecurring) {
       const { data: newRec, error: recErr } = await supabase
@@ -678,7 +417,11 @@ export default function AppPage() {
         .select('id')
         .single()
 
-      if (recErr) return
+      if (recErr) {
+        setMutationError(recErr.message)
+        setSaving(false)
+        return
+      }
 
       const { data: newExp, error: expErr } = await supabase
         .from('expenses')
@@ -693,7 +436,11 @@ export default function AppPage() {
         .select('id')
         .single()
 
-      if (expErr) return
+      if (expErr) {
+        setMutationError(expErr.message)
+        setSaving(false)
+        return
+      }
 
       setRecurringExpenses((prev) => [
         ...prev,
@@ -731,7 +478,11 @@ export default function AppPage() {
         .select('id')
         .single()
 
-      if (error) return
+      if (error) {
+        setMutationError(error.message)
+        setSaving(false)
+        return
+      }
 
       setExpenses((prev) => [
         { id: newExp.id, amount: parseFloat(amount), description, category: selectedCategory, date },
@@ -745,6 +496,7 @@ export default function AppPage() {
     setDate(new Date().toISOString().split('T')[0])
     setIsRecurring(false)
     setRecurringDay('1')
+    setSaving(false)
   }
 
   const openEditRecurring = (r: RecurringExpense) => {
@@ -757,8 +509,10 @@ export default function AppPage() {
 
   const handleSaveRecurring = async () => {
     if (!editingRecurring) return
+    setMutationError(null)
+    setSaving(true)
 
-    await supabase
+    const { error } = await supabase
       .from('recurring_expenses')
       .update({
         amount: parseFloat(editAmount),
@@ -768,6 +522,12 @@ export default function AppPage() {
       })
       .eq('id', editingRecurring.id)
 
+    if (error) {
+      setMutationError(error.message)
+      setSaving(false)
+      return
+    }
+
     setRecurringExpenses((prev) =>
       prev.map((r) =>
         r.id === editingRecurring.id
@@ -776,13 +536,20 @@ export default function AppPage() {
       )
     )
     setEditingRecurring(null)
+    setSaving(false)
   }
 
   const handleToggleRecurring = async (id: string) => {
     const r = recurringExpenses.find((x) => x.id === id)
     if (!r) return
+    setMutationError(null)
 
-    await supabase.from('recurring_expenses').update({ is_active: !r.isActive }).eq('id', id)
+    const { error } = await supabase.from('recurring_expenses').update({ is_active: !r.isActive }).eq('id', id)
+
+    if (error) {
+      setMutationError(error.message)
+      return
+    }
 
     setRecurringExpenses((prev) =>
       prev.map((x) => (x.id === id ? { ...x, isActive: !x.isActive } : x))
@@ -791,8 +558,19 @@ export default function AppPage() {
 
   const handleDeleteRecurring = async () => {
     if (!deletingRecurring) return
-    await supabase.from('recurring_expenses').delete().eq('id', deletingRecurring.id)
-    await supabase.from('expenses').update({ recurring_id: null }).eq('recurring_id', deletingRecurring.id)
+    setMutationError(null)
+
+    const { error: delErr } = await supabase.from('recurring_expenses').delete().eq('id', deletingRecurring.id)
+    if (delErr) {
+      setMutationError(delErr.message)
+      return
+    }
+    const { error: updErr } = await supabase.from('expenses').update({ recurring_id: null }).eq('recurring_id', deletingRecurring.id)
+    if (updErr) {
+      setMutationError(updErr.message)
+      return
+    }
+
     setRecurringExpenses((prev) => prev.filter((r) => r.id !== deletingRecurring.id))
     setExpenses((prev) => prev.map((e) => (e.recurringId === deletingRecurring.id ? { ...e, recurringId: undefined } : e)))
     setDeletingRecurring(null)
@@ -808,8 +586,10 @@ export default function AppPage() {
 
   const handleSaveExpense = async () => {
     if (!editingExpense) return
+    setMutationError(null)
+    setSaving(true)
 
-    await supabase
+    const { error } = await supabase
       .from('expenses')
       .update({
         amount: parseFloat(expenseAmount),
@@ -819,6 +599,12 @@ export default function AppPage() {
       })
       .eq('id', editingExpense.id)
 
+    if (error) {
+      setMutationError(error.message)
+      setSaving(false)
+      return
+    }
+
     setExpenses((prev) =>
       prev.map((e) =>
         e.id === editingExpense.id
@@ -827,23 +613,30 @@ export default function AppPage() {
       )
     )
     setEditingExpense(null)
+    setSaving(false)
   }
 
   const handleDeleteExpense = async (id: string) => {
-    await supabase.from('expenses').delete().eq('id', id)
+    setMutationError(null)
+    const { error } = await supabase.from('expenses').delete().eq('id', id)
+    if (error) {
+      setMutationError(error.message)
+      return
+    }
     setExpenses((prev) => prev.filter((e) => e.id !== id))
     setEditingExpense(null)
   }
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return
+    setMutationError(null)
+    setSaving(true)
 
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
+    if (!user) { setSaving(false); return }
     const id = newCategoryName.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now()
 
-    await supabase.from('categories').insert({
+    const { error } = await supabase.from('categories').insert({
       id,
       user_id: user.id,
       label: newCategoryName.trim(),
@@ -851,12 +644,19 @@ export default function AppPage() {
       is_custom: true,
     })
 
+    if (error) {
+      setMutationError(error.message)
+      setSaving(false)
+      return
+    }
+
     const cat: Category = { id, label: newCategoryName.trim(), color: newCategoryColor, isCustom: true }
     setCategories((prev) => [...prev, cat])
     setSelectedCategory(id)
     setNewCategoryName('')
     setNewCategoryColor(CATEGORY_COLORS[0])
     setShowNewCategoryModal(false)
+    setSaving(false)
   }
 
   const openEditCategory = (cat: Category) => {
@@ -867,13 +667,29 @@ export default function AppPage() {
 
   const handleSaveCategory = async () => {
     if (!editingCategory || !editCategoryName.trim()) return
-    await supabase.from('categories').update({ label: editCategoryName.trim(), color: editCategoryColor }).eq('id', editingCategory.id)
+    setMutationError(null)
+    setSaving(true)
+
+    const { error } = await supabase.from('categories').update({ label: editCategoryName.trim(), color: editCategoryColor }).eq('id', editingCategory.id)
+
+    if (error) {
+      setMutationError(error.message)
+      setSaving(false)
+      return
+    }
+
     setCategories((prev) => prev.map((c) => c.id === editingCategory.id ? { ...c, label: editCategoryName.trim(), color: editCategoryColor } : c))
     setEditingCategory(null)
+    setSaving(false)
   }
 
   const handleDeleteCategory = async (categoryId: string) => {
-    await supabase.from('categories').delete().eq('id', categoryId)
+    setMutationError(null)
+    const { error } = await supabase.from('categories').delete().eq('id', categoryId)
+    if (error) {
+      setMutationError(error.message)
+      return
+    }
     setCategories((prev) => prev.filter((c) => c.id !== categoryId))
     if (selectedCategory === categoryId) setSelectedCategory('food')
     if (categoryFilter === categoryId) setCategoryFilter(null)
@@ -893,11 +709,6 @@ export default function AppPage() {
     setDayFilter((prev) => (prev === date ? null : date))
   }
 
-  const dayOptions = Array.from({ length: 28 }, (_, i) => ({
-    value: (i + 1).toString(),
-    label: `${i + 1}${getOrdinalSuffix(i + 1)}`,
-  }))
-
   if (loading) {
     return (
       <div className="min-h-screen bg-white dark:bg-zinc-950 flex items-center justify-center">
@@ -908,6 +719,24 @@ export default function AppPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-950 transition-colors">
+      {mutationError && (
+        <div
+          className="sticky top-0 z-40 flex items-center justify-between gap-3 px-4 py-3 bg-red-50 dark:bg-red-950/80 border-b border-red-200 dark:border-red-900 text-red-800 dark:text-red-200 text-sm"
+          role="alert"
+        >
+          <span>{mutationError}</span>
+          <button
+            type="button"
+            onClick={() => setMutationError(null)}
+            className="p-1 rounded hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+            aria-label="Dismiss error"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
       <header className="border-b border-zinc-100 dark:border-zinc-800">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
@@ -1074,8 +903,8 @@ export default function AppPage() {
               )}
             </Card>
 
-            <Button onClick={handleAddExpense} disabled={!amount || !description} className="w-full">
-              {isRecurring ? 'Add Recurring Expense' : 'Add Expense'}
+            <Button onClick={handleAddExpense} disabled={!amount || !description || saving} className="w-full">
+              {saving ? 'Saving…' : isRecurring ? 'Add Recurring Expense' : 'Add Expense'}
             </Button>
 
             {recentExpenses.length > 0 && (
@@ -1233,18 +1062,66 @@ export default function AppPage() {
                   </Card>
                 </div>
 
-                {predictionMetrics.highestDay && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Card className="p-4 sm:p-5">
-                      <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Highest spending day</p>
-                      <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.highestDay.amount)}</p>
-                      <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
-                        {new Date(predictionMetrics.highestDay.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                      </p>
-                      <p className={`text-[11px] mt-1 ${vsLastMonthClass}`}>({vsLastMonthLabel})</p>
-                    </Card>
+              </div>
+            )}
+
+            {/* Spend mix: top 5 categories + Other as single stacked bar */}
+            {categoryBreakdown.length > 0 && filteredTotal > 0 && (
+              <div>
+                <SectionTitle>Spend mix</SectionTitle>
+                <Card className="p-4 sm:p-5">
+                  <div className="w-full h-8 sm:h-10 rounded-lg overflow-hidden flex">
+                    {(() => {
+                      const top5 = categoryBreakdown.slice(0, 5)
+                      const otherAmount = categoryBreakdown.slice(5).reduce((s, { amount }) => s + amount, 0)
+                      const segments = top5.map(({ category, amount }) => ({ id: category.id, label: category.label, amount, color: category.color }))
+                      if (otherAmount > 0) segments.push({ id: 'other', label: 'Other', amount: otherAmount, color: '#a1a1aa' })
+                      const totalSeg = segments.reduce((s, { amount }) => s + amount, 0)
+                      return segments.map((seg) => {
+                        const pct = totalSeg > 0 ? (seg.amount / totalSeg) * 100 : 0
+                        return (
+                          <button
+                            key={seg.id}
+                            type="button"
+                            onClick={() => seg.id !== 'other' && handleCategoryClick(seg.id)}
+                            className={`flex items-center justify-center min-w-0 transition-opacity ${seg.id === 'other' ? 'cursor-default' : 'hover:opacity-90'}`}
+                            style={{ width: `${pct}%`, backgroundColor: seg.color }}
+                            title={`${seg.label}: ${formatCurrency(seg.amount)} (${pct.toFixed(0)}%)`}
+                          >
+                            {pct >= 10 && <span className="text-[10px] font-medium text-white truncate px-0.5">{seg.label}</span>}
+                          </button>
+                        )
+                      })
+                    })()}
                   </div>
-                )}
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {(() => {
+                      const top5 = categoryBreakdown.slice(0, 5)
+                      const otherAmount = categoryBreakdown.slice(5).reduce((s, { amount }) => s + amount, 0)
+                      return (
+                        <>
+                          {top5.map(({ category, amount }) => {
+                            const pct = (amount / filteredTotal) * 100
+                            return (
+                              <button key={category.id} type="button" onClick={() => handleCategoryClick(category.id)} className="inline-flex items-center gap-1.5 hover:text-zinc-900 dark:hover:text-zinc-200">
+                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
+                                <span>{category.label}</span>
+                                <span className="tabular-nums">{pct.toFixed(0)}%</span>
+                              </button>
+                            )
+                          })}
+                          {otherAmount > 0 && (
+                            <span className="inline-flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-zinc-400 flex-shrink-0" />
+                              <span>Other</span>
+                              <span className="tabular-nums">{((otherAmount / filteredTotal) * 100).toFixed(0)}%</span>
+                            </span>
+                          )}
+                        </>
+                      )
+                    })()}
+                  </div>
+                </Card>
               </div>
             )}
 
@@ -1348,12 +1225,26 @@ export default function AppPage() {
               <SectionTitle
                 action={
                   filteredExpenses.length > 0 ? (
-                    <button
-                      onClick={handleExportCSV}
-                      className="text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
-                    >
-                      Export CSV
-                    </button>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <select
+                        value={transactionSort}
+                        onChange={(e) => setTransactionSort(e.target.value as typeof transactionSort)}
+                        className="text-xs font-medium text-zinc-600 dark:text-zinc-400 bg-transparent border border-zinc-200 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 outline-none focus:border-zinc-400 dark:focus:border-zinc-500"
+                      >
+                        <option value="date-desc">Date: newest first</option>
+                        <option value="date-asc">Date: oldest first</option>
+                        <option value="amount-desc">Amount: high to low</option>
+                        <option value="amount-asc">Amount: low to high</option>
+                        <option value="category-asc">Category: A–Z</option>
+                        <option value="category-desc">Category: Z–A</option>
+                      </select>
+                      <button
+                        onClick={handleExportCSV}
+                        className="text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Export CSV
+                      </button>
+                    </div>
                   ) : undefined
                 }
               >
@@ -1363,7 +1254,7 @@ export default function AppPage() {
                 {filteredExpenses.length === 0 ? (
                   <div className="px-5 py-8 text-center text-zinc-400 dark:text-zinc-500">No transactions found</div>
                 ) : (
-                  filteredExpenses.map((exp, i, arr) => (
+                  sortedExpenses.map((exp, i, arr) => (
                     <TransactionRow
                       key={exp.id}
                       expense={exp}
@@ -1463,7 +1354,7 @@ export default function AppPage() {
           </div>
           <div className="flex gap-3 pt-4">
             <Button variant="secondary" onClick={() => setShowNewCategoryModal(false)} className="flex-1">Cancel</Button>
-            <Button onClick={handleAddCategory} disabled={!newCategoryName.trim()} className="flex-1">Add Category</Button>
+            <Button onClick={handleAddCategory} disabled={!newCategoryName.trim() || saving} className="flex-1">{saving ? 'Adding…' : 'Add Category'}</Button>
           </div>
         </div>
       </Modal>
@@ -1475,8 +1366,8 @@ export default function AppPage() {
           <Select label="Category" value={editCategory} onChange={setEditCategory} options={categories.map((c) => ({ value: c.id, label: c.label }))} />
           <Select label="Day of Month" value={editDay} onChange={setEditDay} options={dayOptions} />
           <div className="flex gap-3 pt-4">
-            <Button variant="secondary" onClick={() => setEditingRecurring(null)} className="flex-1">Cancel</Button>
-            <Button onClick={handleSaveRecurring} className="flex-1">Save Changes</Button>
+            <Button variant="secondary" onClick={() => setEditingRecurring(null)} className="flex-1" disabled={saving}>Cancel</Button>
+            <Button onClick={handleSaveRecurring} className="flex-1" disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</Button>
           </div>
         </div>
       </Modal>
@@ -1495,9 +1386,9 @@ export default function AppPage() {
             </div>
           )}
           <div className="flex gap-3 pt-2">
-            <Button variant="secondary" onClick={() => editingExpense && handleDeleteExpense(editingExpense.id)} className="text-red-500 hover:bg-red-50">Delete</Button>
-            <Button variant="secondary" onClick={() => setEditingExpense(null)} className="flex-1">Cancel</Button>
-            <Button onClick={handleSaveExpense} className="flex-1">Save</Button>
+            <Button variant="secondary" onClick={() => editingExpense && handleDeleteExpense(editingExpense.id)} className="text-red-500 hover:bg-red-50" disabled={saving}>Delete</Button>
+            <Button variant="secondary" onClick={() => setEditingExpense(null)} className="flex-1" disabled={saving}>Cancel</Button>
+            <Button onClick={handleSaveExpense} className="flex-1" disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
           </div>
         </div>
       </Modal>
