@@ -222,7 +222,7 @@ export function WealthDashboard() {
                 <YAxis hide domain={['auto', 'auto']} />
                 <Tooltip
                   contentStyle={{ borderRadius: 12, border: '1px solid rgb(228 228 231)' }}
-                  formatter={(v: number) => [formatCurrency(v), 'Income']}
+                  formatter={(v) => [formatCurrency(v ?? 0), 'Income']}
                   labelFormatter={(_, payload) => payload?.[0]?.payload?.month}
                 />
                 <Area type="monotone" dataKey="value" stroke="#8b5cf6" fill="url(#wealth-dash-income-grad)" strokeWidth={2} />
@@ -250,7 +250,7 @@ export function WealthDashboard() {
                 <YAxis hide domain={['auto', 'auto']} />
                 <Tooltip
                   contentStyle={{ borderRadius: 12, border: '1px solid rgb(228 228 231)' }}
-                  formatter={(v: number) => [formatCurrency(v), 'Expenses']}
+                  formatter={(v) => [formatCurrency(v ?? 0), 'Expenses']}
                   labelFormatter={(_, payload) => payload?.[0]?.payload?.month}
                 />
                 <Area type="monotone" dataKey="value" stroke="#ef4444" fill="url(#wealth-dash-expense-grad)" strokeWidth={2} />
@@ -278,7 +278,7 @@ export function WealthDashboard() {
                 <YAxis hide domain={['auto', 'auto']} />
                 <Tooltip
                   contentStyle={{ borderRadius: 12, border: '1px solid rgb(228 228 231)' }}
-                  formatter={(v: number) => [formatCurrency(v), 'Net Worth']}
+                  formatter={(v) => [formatCurrency(v ?? 0), 'Net Worth']}
                   labelFormatter={(_, payload) => payload?.[0]?.payload?.month}
                 />
                 <Area type="monotone" dataKey="value" stroke="#22c55e" fill="url(#wealth-dash-nw-grad)" strokeWidth={2} />
