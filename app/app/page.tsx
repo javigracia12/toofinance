@@ -28,6 +28,8 @@ import {
 import { CategoryPill } from '@/app/app/components/CategoryPill'
 import { TransactionRow } from '@/app/app/components/TransactionRow'
 import { Modal } from '@/app/app/components/Modal'
+import { WealthTracker } from '@/app/app/components/WealthTracker'
+import { WealthDashboard } from '@/app/app/components/WealthDashboard'
 
 export default function AppPage() {
   const router = useRouter()
@@ -38,6 +40,7 @@ export default function AppPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [section, setSection] = useState<'expenses' | 'wealth'>('expenses')
+  const [wealthView, setWealthView] = useState<'tracker' | 'dashboard'>('tracker')
   const [view, setView] = useState<'add' | 'dashboard' | 'recurring'>('add')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [monthFilter, setMonthFilter] = useState<string | null>(null)
@@ -779,7 +782,7 @@ export default function AppPage() {
           </div>
           {section === 'expenses' && (
             <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-lg p-1 mt-3">
-              {['add', 'dashboard', 'recurring'].map((tab) => (
+              {(['add', 'dashboard', 'recurring'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setView(tab as typeof view)}
@@ -792,41 +795,27 @@ export default function AppPage() {
               ))}
             </div>
           )}
+          {section === 'wealth' && (
+            <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-lg p-1 mt-3">
+              {(['tracker', 'dashboard'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setWealthView(tab)}
+                  className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all capitalize ${
+                    wealthView === tab ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-50 shadow-sm' : 'text-zinc-500 dark:text-zinc-400'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {section === 'wealth' && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mb-6">
-              <svg className="w-8 h-8 text-zinc-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 mb-2">Wealth Tracker</h2>
-            <p className="text-zinc-500 dark:text-zinc-400 text-center max-w-sm mb-6">
-              Track your net worth, assets, debts, and cash accounts. See your complete financial picture.
-            </p>
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-100 dark:bg-zinc-800 rounded-full">
-              <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
-              <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Coming Soon</span>
-            </div>
-            <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-lg opacity-50">
-              <Card className="p-4 text-center">
-                <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Cash</p>
-                <p className="text-lg font-semibold text-zinc-300 dark:text-zinc-600 mt-1">€ --</p>
-              </Card>
-              <Card className="p-4 text-center">
-                <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Assets</p>
-                <p className="text-lg font-semibold text-zinc-300 dark:text-zinc-600 mt-1">€ --</p>
-              </Card>
-              <Card className="p-4 text-center">
-                <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Debts</p>
-                <p className="text-lg font-semibold text-zinc-300 dark:text-zinc-600 mt-1">€ --</p>
-              </Card>
-            </div>
-          </div>
-        )}
+      <main className={`mx-auto px-4 sm:px-6 py-6 sm:py-8 ${section === 'wealth' ? 'max-w-6xl' : 'max-w-2xl'}`}>
+        {section === 'wealth' && wealthView === 'tracker' && <WealthTracker />}
+        {section === 'wealth' && wealthView === 'dashboard' && <WealthDashboard />}
 
         {section === 'expenses' && view === 'add' && (
           <div className="space-y-8">
