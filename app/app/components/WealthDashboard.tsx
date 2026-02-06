@@ -3,17 +3,24 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency } from '@/lib/format'
+import { isRentCategory } from '@/lib/expense-utils'
+import type { Category } from '@/lib/types'
 import {
   Tooltip,
   ResponsiveContainer,
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   XAxis,
   YAxis,
+  Legend,
 } from 'recharts'
 
 type ChartPoint = { month: string; value: number; fullDate: string }
+
+type ComparisonPoint = { month: string; wealthDerived: number; tracked: number; fullDate: string }
 
 type AllocationGroup = { label: string; amount: number; pct: number; assets: { name: string; amount: number; pct: number }[] }
 
@@ -26,6 +33,7 @@ export function WealthDashboard() {
   const [allocation, setAllocation] = useState<AllocationGroup[]>([])
   const [allocationMonth, setAllocationMonth] = useState<string>('')
   const [collapsedClasses, setCollapsedClasses] = useState<Set<string>>(new Set())
+  const [comparisonData, setComparisonData] = useState<ComparisonPoint[]>([])
 
   const loadDashboardData = useCallback(async () => {
     setLoading(true)
@@ -53,11 +61,14 @@ export function WealthDashboard() {
       }
 
       const snapshotIds = snapshots.map(s => s.id)
-      const [cashRes, assetsRes, debtsRes, earningsRes] = await Promise.all([
+      const [cashRes, assetsRes, debtsRes, earningsRes, investmentsRes, expensesRes, categoriesRes] = await Promise.all([
         supabase.from('wealth_cash_accounts').select('snapshot_id, name, amount').in('snapshot_id', snapshotIds),
         supabase.from('wealth_assets').select('snapshot_id, name, amount, asset_class').in('snapshot_id', snapshotIds),
         supabase.from('wealth_debts').select('snapshot_id, amount').in('snapshot_id', snapshotIds),
         supabase.from('wealth_earnings').select('snapshot_id, amount').in('snapshot_id', snapshotIds),
+        supabase.from('wealth_investments').select('snapshot_id, amount').in('snapshot_id', snapshotIds),
+        supabase.from('expenses').select('date, amount, category'),
+        supabase.from('categories').select('*'),
       ])
 
       const cashBySnap = new Map<string, number>()
@@ -80,10 +91,22 @@ export function WealthDashboard() {
       ;(earningsRes.data || []).forEach((r: { snapshot_id: string; amount: number }) => {
         earningsBySnap.set(r.snapshot_id, (earningsBySnap.get(r.snapshot_id) || 0) + Number(r.amount))
       })
+      const investmentsBySnap = new Map<string, number>()
+      ;(investmentsRes.data || []).forEach((r: { snapshot_id: string; amount: number }) => {
+        investmentsBySnap.set(r.snapshot_id, (investmentsBySnap.get(r.snapshot_id) || 0) + Number(r.amount))
+      })
+
+      const categories: Category[] = (categoriesRes.data || []).map((r: { id: string; label: string; color: string; is_custom?: boolean }) => ({
+        id: r.id,
+        label: r.label,
+        color: r.color,
+        isCustom: r.is_custom ?? false,
+      }))
 
       const snapById = new Map(snapshots.map(s => [s.id, s]))
       const netWorthPoints: ChartPoint[] = []
       const incomePoints: ChartPoint[] = []
+      const wealthDerivedExpensePoints: ChartPoint[] = []
 
       for (const snap of snapshots) {
         const cash = cashBySnap.get(snap.id) || 0
@@ -101,30 +124,44 @@ export function WealthDashboard() {
         netWorthPoints.push({ month: monthLabel, value: netWorth, fullDate })
         if (snap.month >= 1) {
           incomePoints.push({ month: monthLabel, value: earnings, fullDate })
+          // Implied spending = Income - Δ Net Worth + Asset Appreciation
+          const prevSnap = snapshots.find(s => s.year === snap.year && s.month === snap.month - 1)
+          if (prevSnap) {
+            const prevCash = cashBySnap.get(prevSnap.id) || 0
+            const prevAssets = assetsBySnap.get(prevSnap.id) || 0
+            const prevDebts = debtsBySnap.get(prevSnap.id) || 0
+            const prevNetWorth = prevCash + prevAssets - prevDebts
+            const deltaNetWorth = netWorth - prevNetWorth
+            const deltaAssets = (assetsBySnap.get(snap.id) || 0) - (assetsBySnap.get(prevSnap.id) || 0)
+            const investments = investmentsBySnap.get(snap.id) || 0
+            const assetAppreciation = deltaAssets - investments
+            const implied = earnings - deltaNetWorth + assetAppreciation
+            wealthDerivedExpensePoints.push({ month: monthLabel, value: implied, fullDate })
+          }
         }
       }
 
       setNetWorthData(netWorthPoints)
       setIncomeData(incomePoints)
+      setExpenseData(wealthDerivedExpensePoints)
 
-      // Expenses from expenses table
-      const { data: expenses } = await supabase
-        .from('expenses')
-        .select('date, amount')
-        .order('date', { ascending: true })
-
-      const byMonth = new Map<string, number>()
-      ;(expenses || []).forEach((r: { date: string; amount: number }) => {
+      // Tracked expenses (ex. rent) for comparison
+      const trackedByMonth = new Map<string, number>()
+      ;(expensesRes.data || []).forEach((r: { date: string; amount: number; category: string }) => {
+        if (isRentCategory(r.category, categories)) return
         const [y, m] = r.date.split('-')
         const key = `${y}-${m}`
-        byMonth.set(key, (byMonth.get(key) || 0) + Number(r.amount))
+        trackedByMonth.set(key, (trackedByMonth.get(key) || 0) + Number(r.amount))
       })
 
-      const expensePoints: ChartPoint[] = Array.from(byMonth.entries())
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([month]) => ({ month, value: byMonth.get(month) || 0, fullDate: `${month}-01` }))
-
-      setExpenseData(expensePoints)
+      // Build comparison: align months where we have wealth-derived data
+      const comparisonPoints: ComparisonPoint[] = wealthDerivedExpensePoints.map((wp) => ({
+        month: wp.month,
+        wealthDerived: wp.value,
+        tracked: trackedByMonth.get(wp.month) || 0,
+        fullDate: wp.fullDate,
+      }))
+      setComparisonData(comparisonPoints)
 
       // Allocation summary (last month): 100% = cash + all assets
       const lastSnap = snapshots[snapshots.length - 1]
@@ -233,9 +270,9 @@ export function WealthDashboard() {
           )}
         </div>
 
-        {/* Expenses */}
+        {/* Expenses (from wealth: Income - Δ NW + Asset appreciation) */}
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4">
-          <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">Expenses</p>
+          <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">Expenses (implied)</p>
           {expenseData.length > 0 ? (
             <ResponsiveContainer width="100%" height={chartHeight}>
               <AreaChart data={expenseData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
@@ -289,6 +326,33 @@ export function WealthDashboard() {
           )}
         </div>
       </div>
+
+      {/* Expense comparison: tracked vs wealth-derived */}
+      {comparisonData.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-medium text-zinc-800 dark:text-zinc-200">Expense comparison</h2>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            Tracked = logged in Expenses (ex. rent). Implied = Income − Δ Net Worth + Asset appreciation.
+          </p>
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4">
+            <ResponsiveContainer width="100%" height={chartHeight + 40}>
+              <BarChart data={comparisonData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-zinc-200 dark:stroke-zinc-700" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
+                <YAxis hide domain={['auto', 'auto']} />
+                <Tooltip
+                  contentStyle={{ borderRadius: 12, border: '1px solid rgb(228 228 231)' }}
+                  formatter={(v) => formatCurrency(Number(v) || 0)}
+                  labelFormatter={(_, payload) => payload?.[0]?.payload?.month}
+                />
+                <Legend />
+                <Bar dataKey="wealthDerived" name="Implied (wealth)" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="tracked" name="Tracked (ex. rent)" fill="#71717a" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {/* Asset allocation summary table */}
       <div className="space-y-4">

@@ -175,14 +175,19 @@ export default function AppPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   }, [])
 
+  const expensesExRent = useMemo(
+    () => expenses.filter((e) => !isRent(e.category)),
+    [expenses, categories]
+  )
+
   const monthlyData = useMemo(() => {
     const data: Record<string, number> = {}
-    expenses.forEach((e) => {
+    expensesExRent.forEach((e) => {
       const key = getMonthKey(e.date)
       data[key] = (data[key] || 0) + e.amount
     })
     return Object.entries(data).sort(([a], [b]) => a.localeCompare(b)).slice(-6)
-  }, [expenses])
+  }, [expensesExRent])
 
   const activeMonth = monthFilter || currentMonth
 
@@ -213,7 +218,7 @@ export default function AppPage() {
   const monthlyDataByCategory = useMemo(() => {
     const byMonth: Record<string, Record<string, number>> = {}
     monthlyData.forEach(([month]) => { byMonth[month] = {} })
-    expenses.forEach((e) => {
+    expensesExRent.forEach((e) => {
       const key = getMonthKey(e.date)
       if (!(key in byMonth)) return
       byMonth[key][e.category] = (byMonth[key][e.category] || 0) + e.amount
@@ -225,7 +230,7 @@ export default function AppPage() {
         .map(([catId, amount]) => ({ category: getCategory(catId), amount }))
         .sort((a, b) => b.amount - a.amount),
     }))
-  }, [monthlyData, expenses, categories])
+  }, [monthlyData, expensesExRent, categories])
 
   const filteredExpenses = useMemo(() => {
     let filtered = activeMonthExpenses
@@ -248,6 +253,21 @@ export default function AppPage() {
       .map(([id, amount]) => ({ category: getCategory(id), amount }))
       .sort((a, b) => b.amount - a.amount)
   }, [filteredExpenses, categories])
+
+  const filteredExpensesExRent = useMemo(
+    () => filteredExpenses.filter((e) => !isRent(e.category)),
+    [filteredExpenses, categories]
+  )
+  const filteredTotalExRent = filteredExpensesExRent.reduce((s, e) => s + e.amount, 0)
+  const categoryBreakdownExRent = useMemo(() => {
+    const data: Record<string, number> = {}
+    filteredExpensesExRent.forEach((e) => {
+      data[e.category] = (data[e.category] || 0) + e.amount
+    })
+    return Object.entries(data)
+      .map(([id, amount]) => ({ category: getCategory(id), amount }))
+      .sort((a, b) => b.amount - a.amount)
+  }, [filteredExpensesExRent, categories])
 
   const sortedExpenses = useMemo(
     () => sortExpenses(filteredExpenses, transactionSort, getCategory),
@@ -293,7 +313,7 @@ export default function AppPage() {
     const predictedExRent = monthlyRecurringExRent + predictedOneOffExRent
 
     const byDay: Record<string, number> = {}
-    activeMonthExpenses.forEach((e) => {
+    activeMonthExpenses.filter((e) => !isRent(e.category)).forEach((e) => {
       byDay[e.date] = (byDay[e.date] || 0) + e.amount
     })
 
@@ -998,7 +1018,7 @@ export default function AppPage() {
                 </div>
 
                 <div>
-                  <SectionTitle>Daily Spending</SectionTitle>
+                  <SectionTitle>Daily Spending (ex. rent)</SectionTitle>
                   <Card className="p-4 sm:p-5">
                     {dailySpendingBars.length === 0 ? (
                       <div className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-8">No spending recorded yet this month.</div>
@@ -1054,15 +1074,15 @@ export default function AppPage() {
               </div>
             )}
 
-            {/* Spend mix: top 5 categories + Other as single stacked bar */}
-            {categoryBreakdown.length > 0 && filteredTotal > 0 && (
+            {/* Spend mix: top 5 categories + Other as single stacked bar (ex. rent) */}
+            {categoryBreakdownExRent.length > 0 && filteredTotalExRent > 0 && (
               <div>
-                <SectionTitle>Spend mix</SectionTitle>
+                <SectionTitle>Spend mix (ex. rent)</SectionTitle>
                 <Card className="p-4 sm:p-5">
                   <div className="w-full h-8 sm:h-10 rounded-lg overflow-hidden flex">
                     {(() => {
-                      const top5 = categoryBreakdown.slice(0, 5)
-                      const otherAmount = categoryBreakdown.slice(5).reduce((s, { amount }) => s + amount, 0)
+                      const top5 = categoryBreakdownExRent.slice(0, 5)
+                      const otherAmount = categoryBreakdownExRent.slice(5).reduce((s, { amount }) => s + amount, 0)
                       const segments = top5.map(({ category, amount }) => ({ id: category.id, label: category.label, amount, color: category.color }))
                       if (otherAmount > 0) segments.push({ id: 'other', label: 'Other', amount: otherAmount, color: '#a1a1aa' })
                       const totalSeg = segments.reduce((s, { amount }) => s + amount, 0)
@@ -1085,12 +1105,12 @@ export default function AppPage() {
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
                     {(() => {
-                      const top5 = categoryBreakdown.slice(0, 5)
-                      const otherAmount = categoryBreakdown.slice(5).reduce((s, { amount }) => s + amount, 0)
+                      const top5 = categoryBreakdownExRent.slice(0, 5)
+                      const otherAmount = categoryBreakdownExRent.slice(5).reduce((s, { amount }) => s + amount, 0)
                       return (
                         <>
                           {top5.map(({ category, amount }) => {
-                            const pct = (amount / filteredTotal) * 100
+                            const pct = (amount / filteredTotalExRent) * 100
                             return (
                               <button key={category.id} type="button" onClick={() => handleCategoryClick(category.id)} className="inline-flex items-center gap-1.5 hover:text-zinc-900 dark:hover:text-zinc-200">
                                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
@@ -1103,7 +1123,7 @@ export default function AppPage() {
                             <span className="inline-flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-zinc-400 flex-shrink-0" />
                               <span>Other</span>
-                              <span className="tabular-nums">{((otherAmount / filteredTotal) * 100).toFixed(0)}%</span>
+                              <span className="tabular-nums">{((otherAmount / filteredTotalExRent) * 100).toFixed(0)}%</span>
                             </span>
                           )}
                         </>
@@ -1115,7 +1135,7 @@ export default function AppPage() {
             )}
 
             <div>
-              <SectionTitle>6-Month Trend</SectionTitle>
+              <SectionTitle>6-Month Trend (ex. rent)</SectionTitle>
               <Card className="p-4 sm:p-6">
                 <div className="flex items-end gap-2 sm:gap-4 h-48 sm:h-64">
                   {monthlyDataByCategory.map(({ month, total, segments }) => {
@@ -1162,12 +1182,12 @@ export default function AppPage() {
               </Card>
             </div>
 
-            {categoryBreakdown.length > 0 && (
+            {categoryBreakdownExRent.length > 0 && (
               <div>
-                <SectionTitle>By Category</SectionTitle>
+                <SectionTitle>By Category (ex. rent)</SectionTitle>
                 <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                  {categoryBreakdown.map(({ category, amount }) => {
-                    const percent = filteredTotal > 0 ? (amount / filteredTotal) * 100 : 0
+                  {categoryBreakdownExRent.map(({ category, amount }) => {
+                    const percent = filteredTotalExRent > 0 ? (amount / filteredTotalExRent) * 100 : 0
                     const isFiltered = categoryFilter === category.id
                     const isOther = categoryFilter && categoryFilter !== category.id
                     return (
@@ -1200,12 +1220,12 @@ export default function AppPage() {
               </div>
             )}
 
-            {!hasFilters && categoryBreakdown[0] && (
+            {!hasFilters && categoryBreakdownExRent[0] && (
               <Card className="bg-gradient-to-br from-zinc-900 to-zinc-800 dark:from-zinc-800 dark:to-zinc-900 border-0 p-6 text-white">
-                <h2 className="text-xs text-zinc-400 uppercase tracking-wider font-medium mb-3">Insight</h2>
+                <h2 className="text-xs text-zinc-400 uppercase tracking-wider font-medium mb-3">Insight (ex. rent)</h2>
                 <p className="text-lg">
-                  <span className="font-semibold">{categoryBreakdown[0].category.label}</span> is your biggest expense this month, accounting for{' '}
-                  <span className="font-semibold">{filteredTotal > 0 ? ((categoryBreakdown[0].amount / filteredTotal) * 100).toFixed(0) : 0}%</span> of your spending.
+                  <span className="font-semibold">{categoryBreakdownExRent[0].category.label}</span> is your biggest variable expense this month, accounting for{' '}
+                  <span className="font-semibold">{filteredTotalExRent > 0 ? ((categoryBreakdownExRent[0].amount / filteredTotalExRent) * 100).toFixed(0) : 0}%</span> of your non-rent spending.
                 </p>
               </Card>
             )}
