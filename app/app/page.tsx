@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { DEFAULT_CATEGORIES, CATEGORY_COLORS, CURRENCY } from '@/lib/constants'
@@ -28,8 +29,9 @@ import {
 import { CategoryPill } from '@/app/app/components/CategoryPill'
 import { TransactionRow } from '@/app/app/components/TransactionRow'
 import { Modal } from '@/app/app/components/Modal'
-import { WealthTracker } from '@/app/app/components/WealthTracker'
-import { WealthDashboard } from '@/app/app/components/WealthDashboard'
+
+const WealthTracker = dynamic(() => import('@/app/app/components/WealthTracker').then(m => ({ default: m.WealthTracker })), { ssr: false })
+const WealthDashboard = dynamic(() => import('@/app/app/components/WealthDashboard').then(m => ({ default: m.WealthDashboard })), { ssr: false })
 
 export default function AppPage() {
   const router = useRouter()
@@ -105,6 +107,7 @@ export default function AppPage() {
 
   const getCategory = (id: string): Category =>
     categories.find((c) => c.id === id) || { id: 'other', label: 'Other', color: '#6b7280' }
+  const isRent = (catId: string) => isRentCategory(catId, categories)
 
   // Fetch data and seed default categories
   useEffect(() => {
@@ -282,8 +285,6 @@ export default function AppPage() {
   const maxMonth = Math.max(...monthlyData.map(([, v]) => v), 1)
   const hasFilters = categoryFilter || monthFilter || dayFilter
   const monthlyRecurringTotal = recurringExpenses.filter((r) => r.isActive).reduce((sum, r) => sum + r.amount, 0)
-
-  const isRent = (catId: string) => isRentCategory(catId, categories)
   const monthlyRecurringExRent = recurringExpenses.filter((r) => r.isActive && !isRent(r.category)).reduce((sum, r) => sum + r.amount, 0)
 
   // Predictions & extra metrics (current month only, no filters). Recurring = full month, not scaled. One-off = scaled.
