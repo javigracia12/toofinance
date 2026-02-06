@@ -18,6 +18,21 @@ import {
   Legend,
 } from 'recharts'
 
+function SimpleTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number; payload?: { month?: string } }[]; label?: string }) {
+  if (!active || !payload?.length) return null
+  const monthLabel = label ?? payload?.[0]?.payload?.month
+  return (
+    <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 shadow-lg">
+      {monthLabel && <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">{monthLabel}</p>}
+      {payload.map((p, i) => (
+        <p key={i} className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          {formatCurrency(Number(p.value) || 0)}
+        </p>
+      ))}
+    </div>
+  )
+}
+
 type ChartPoint = { month: string; value: number; fullDate: string }
 
 type ComparisonPoint = { month: string; wealthDerived: number; tracked: number; fullDate: string }
@@ -257,11 +272,7 @@ export function WealthDashboard() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-zinc-200 dark:stroke-zinc-700" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
                 <YAxis hide domain={['auto', 'auto']} />
-                <Tooltip
-                  contentStyle={{ borderRadius: 12, border: '1px solid rgb(228 228 231)' }}
-                  formatter={(v) => [formatCurrency(Number(v) || 0), 'Income']}
-                  labelFormatter={(_, payload) => payload?.[0]?.payload?.month}
-                />
+                <Tooltip content={<SimpleTooltip />} />
                 <Area type="monotone" dataKey="value" stroke="#8b5cf6" fill="url(#wealth-dash-income-grad)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
@@ -285,11 +296,7 @@ export function WealthDashboard() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-zinc-200 dark:stroke-zinc-700" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
                 <YAxis hide domain={['auto', 'auto']} />
-                <Tooltip
-                  contentStyle={{ borderRadius: 12, border: '1px solid rgb(228 228 231)' }}
-                  formatter={(v) => [formatCurrency(Number(v) || 0), 'Expenses']}
-                  labelFormatter={(_, payload) => payload?.[0]?.payload?.month}
-                />
+                <Tooltip content={<SimpleTooltip />} />
                 <Area type="monotone" dataKey="value" stroke="#ef4444" fill="url(#wealth-dash-expense-grad)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
@@ -313,11 +320,7 @@ export function WealthDashboard() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-zinc-200 dark:stroke-zinc-700" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
                 <YAxis hide domain={['auto', 'auto']} />
-                <Tooltip
-                  contentStyle={{ borderRadius: 12, border: '1px solid rgb(228 228 231)' }}
-                  formatter={(v) => [formatCurrency(Number(v) || 0), 'Net Worth']}
-                  labelFormatter={(_, payload) => payload?.[0]?.payload?.month}
-                />
+                <Tooltip content={<SimpleTooltip />} />
                 <Area type="monotone" dataKey="value" stroke="#22c55e" fill="url(#wealth-dash-nw-grad)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
@@ -340,11 +343,7 @@ export function WealthDashboard() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-zinc-200 dark:stroke-zinc-700" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
                 <YAxis hide domain={['auto', 'auto']} />
-                <Tooltip
-                  contentStyle={{ borderRadius: 12, border: '1px solid rgb(228 228 231)' }}
-                  formatter={(v) => formatCurrency(Number(v) || 0)}
-                  labelFormatter={(_, payload) => payload?.[0]?.payload?.month}
-                />
+                <Tooltip content={<SimpleTooltip />} />
                 <Legend />
                 <Bar dataKey="wealthDerived" name="Implied (wealth)" fill="#ef4444" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="tracked" name="Tracked (ex. rent)" fill="#71717a" radius={[4, 4, 0, 0]} />
