@@ -579,80 +579,115 @@ export function WealthDashboard() {
           {allocationMonth ? `As of ${allocationMonth} — Cash + assets = 100%` : 'Add cash and assets in the Tracker to see allocation.'}
         </p>
         {allocation.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-4 rounded-2xl bg-white dark:bg-zinc-900/80 p-6 shadow-lg shadow-zinc-900/5 dark:shadow-none ring-1 ring-zinc-200/80 dark:ring-zinc-800/80 flex items-center justify-center">
-              <ResponsiveContainer width="100%" height={240}>
-                <PieChart>
-                  <Pie
-                    data={allocation}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={65}
-                    outerRadius={100}
-                    paddingAngle={3}
-                    dataKey="amount"
-                    nameKey="label"
-                  >
-                    {allocation.map((g, i) => (
-                      <Cell key={g.label} fill={ALLOC_COLORS[i % ALLOC_COLORS.length]} stroke="none" />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<ChartTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="lg:col-span-8 rounded-2xl bg-white dark:bg-zinc-900/80 overflow-hidden shadow-lg shadow-zinc-900/5 dark:shadow-none ring-1 ring-zinc-200/80 dark:ring-zinc-800/80">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-zinc-100 dark:border-zinc-800">
-                    <th className="text-left py-4 px-5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Asset Class</th>
-                    <th className="text-right py-4 px-5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Amount</th>
-                    <th className="text-right py-4 px-5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider w-24">%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allocation.map((group, gi) => {
-                    const isCollapsed = collapsedClasses.has(group.label)
-                    const hasChildren = group.assets.length > 0
-                    return (
-                      <React.Fragment key={group.label}>
-                        <tr className="border-b border-zinc-50 dark:border-zinc-800/50 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                          <td className="py-3 px-5">
-                            <button
-                              type="button"
-                              onClick={() => setCollapsedClasses(prev => {
-                                const next = new Set(prev)
-                                if (next.has(group.label)) next.delete(group.label)
-                                else next.add(group.label)
-                                return next
-                              })}
-                              className="flex items-center gap-2.5 text-left font-medium text-zinc-900 dark:text-zinc-100 hover:opacity-80"
-                              aria-expanded={!isCollapsed}
-                            >
-                              <span className="w-3 h-3 rounded-full shrink-0 ring-2 ring-white dark:ring-zinc-900 shadow-sm" style={{ backgroundColor: ALLOC_COLORS[gi % ALLOC_COLORS.length] }} />
-                              {hasChildren && <span className="text-zinc-400 text-xs">{isCollapsed ? '▶' : '▼'}</span>}
-                              {group.label}
-                            </button>
-                          </td>
-                          <td className="py-3 px-5 text-right tabular-nums font-medium text-zinc-700 dark:text-zinc-300">{formatCurrency(group.amount)}</td>
-                          <td className="py-3 px-5 text-right tabular-nums text-zinc-600 dark:text-zinc-400">{group.pct.toFixed(1)}%</td>
-                        </tr>
-                        {hasChildren && !isCollapsed && group.assets.map(a => (
-                          <tr key={`${group.label}-${a.name}`} className="border-b border-zinc-50 dark:border-zinc-800/50 bg-zinc-50/30 dark:bg-zinc-800/20">
-                            <td className="py-2.5 px-5 pl-12 text-zinc-600 dark:text-zinc-400 text-sm">{a.name}</td>
-                            <td className="py-2.5 px-5 text-right tabular-nums text-zinc-700 dark:text-zinc-300 text-sm">{formatCurrency(a.amount)}</td>
-                            <td className="py-2.5 px-5 text-right tabular-nums text-zinc-600 dark:text-zinc-400 text-sm">{a.pct.toFixed(1)}%</td>
-                          </tr>
+          <div className="rounded-3xl bg-white dark:bg-zinc-900/90 shadow-xl shadow-zinc-900/10 dark:shadow-none overflow-hidden ring-1 ring-zinc-200/60 dark:ring-zinc-800/80">
+            <div className="flex flex-col lg:flex-row">
+              {/* Donut — compact, left-aligned on desktop */}
+              <div className="lg:w-72 lg:min-w-[288px] flex items-center justify-center py-10 lg:py-12 px-6 border-b lg:border-b-0 lg:border-r border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/30 dark:bg-zinc-800/20">
+                <div className="relative w-48 h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={allocation}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="55%"
+                        outerRadius="85%"
+                        paddingAngle={2}
+                        dataKey="amount"
+                        nameKey="label"
+                      >
+                        {allocation.map((g, i) => (
+                          <Cell key={g.label} fill={ALLOC_COLORS[i % ALLOC_COLORS.length]} stroke="none" />
                         ))}
-                      </React.Fragment>
-                    )
-                  })}
-                </tbody>
-              </table>
+                      </Pie>
+                      <Tooltip content={<ChartTooltip />} cursor={false} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* List — Settings-style rows */}
+              <div className="flex-1 divide-y divide-zinc-100 dark:divide-zinc-800/80">
+                {allocation.map((group, gi) => {
+                  const isCollapsed = collapsedClasses.has(group.label)
+                  const hasChildren = group.assets.length > 0
+                  const color = ALLOC_COLORS[gi % ALLOC_COLORS.length]
+                  return (
+                    <div key={group.label}>
+                      <button
+                        type="button"
+                        onClick={() => hasChildren && setCollapsedClasses(prev => {
+                          const next = new Set(prev)
+                          if (next.has(group.label)) next.delete(group.label)
+                          else next.add(group.label)
+                          return next
+                        })}
+                        className={`w-full flex items-center gap-4 px-6 py-4 text-left transition-colors ${
+                          hasChildren ? 'hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 cursor-pointer' : 'cursor-default'
+                        }`}
+                        aria-expanded={!isCollapsed}
+                      >
+                        <div className="w-1.5 rounded-full h-10 shrink-0" style={{ backgroundColor: color }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-zinc-900 dark:text-zinc-100">{group.label}</span>
+                            {hasChildren && (
+                              <span className={`text-zinc-400 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`}>
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                </svg>
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1.5 h-1 w-full max-w-32 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-300"
+                              style={{ width: `${group.pct}%`, backgroundColor: color }}
+                            />
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{formatCurrency(group.amount)}</p>
+                          <p className="text-sm tabular-nums text-zinc-500 dark:text-zinc-400">{group.pct.toFixed(1)}%</p>
+                        </div>
+                      </button>
+
+                      {hasChildren && !isCollapsed && (
+                        <div className="bg-zinc-50/50 dark:bg-zinc-800/30">
+                          {group.assets.map((a) => (
+                            <div
+                              key={`${group.label}-${a.name}`}
+                              className="flex items-center gap-4 px-6 py-3 pl-12 border-t border-zinc-100/80 dark:border-zinc-800/80"
+                            >
+                              <div className="w-1.5 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-zinc-600 dark:text-zinc-400">{a.name}</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-sm font-medium tabular-nums text-zinc-700 dark:text-zinc-300">{formatCurrency(a.amount)}</p>
+                                <p className="text-xs tabular-nums text-zinc-500 dark:text-zinc-500">{a.pct.toFixed(1)}%</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="px-6 py-3 bg-zinc-50/50 dark:bg-zinc-800/20 border-t border-zinc-100 dark:border-zinc-800/80">
+              <p className="text-xs text-zinc-500 dark:text-zinc-500">Cash + assets = 100% · Debts excluded</p>
             </div>
           </div>
         ) : (
-          <div className="rounded-2xl bg-white dark:bg-zinc-900/80 p-12 text-center shadow-lg shadow-zinc-900/5 dark:shadow-none ring-1 ring-zinc-200/80 dark:ring-zinc-800/80">
+          <div className="rounded-3xl bg-white dark:bg-zinc-900/90 p-16 text-center shadow-xl shadow-zinc-900/10 dark:shadow-none ring-1 ring-zinc-200/60 dark:ring-zinc-800/80">
+            <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800/80 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-7 h-7 text-zinc-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+              </svg>
+            </div>
             <p className="text-zinc-500 dark:text-zinc-400">Add cash and assets in the Tracker to see your allocation.</p>
           </div>
         )}
