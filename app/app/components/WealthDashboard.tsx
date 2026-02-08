@@ -258,14 +258,14 @@ export function WealthDashboard() {
   }
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8 sm:space-y-10">
 
       {/* Hero — same pattern as expenses dashboard */}
-      <div className="text-center py-4 sm:py-6">
-        <p className="text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">
+      <div className="text-center py-4 sm:py-6 px-1">
+        <p className="text-xs sm:text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">
           Net Worth {latest && `· ${latest.month}`}
         </p>
-        <p className="mt-2 text-4xl sm:text-5xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">
+        <p className="mt-2 text-3xl sm:text-5xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums break-all">
           {latest ? formatCurrency(latest.value) : '—'}
         </p>
         {delta !== null && (
@@ -282,21 +282,21 @@ export function WealthDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Card className="p-4 sm:p-5">
             <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Income</p>
-            <p className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">
+            <p className="mt-1 text-xl sm:text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums break-all">
               {incomeData.length > 0 ? formatCurrency(incomeData[incomeData.length - 1].value) : '—'}
             </p>
             {incomeData.length > 0 && <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{incomeData[incomeData.length - 1].month}</p>}
           </Card>
           <Card className="p-4 sm:p-5">
             <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Implied Spending</p>
-            <p className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">
+            <p className="mt-1 text-xl sm:text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums break-all">
               {expenseData.length > 0 ? formatCurrency(expenseData[expenseData.length - 1].value) : '—'}
             </p>
             {expenseData.length > 0 && <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{expenseData[expenseData.length - 1].month}</p>}
           </Card>
           <Card className="p-4 sm:p-5">
             <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Savings Rate</p>
-            <p className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">
+            <p className="mt-1 text-xl sm:text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums break-all">
               {savingsData.length > 0 ? `${savingsData[savingsData.length - 1].rate}%` : '—'}
             </p>
             {savingsData.length > 0 && <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{savingsData[savingsData.length - 1].month}</p>}
@@ -348,9 +348,13 @@ export function WealthDashboard() {
                 {segments.map((seg) => (
                   <div
                     key={seg.label}
-                    className="h-full transition-all min-w-0 cursor-pointer hover:opacity-90 relative first:rounded-l-lg last:rounded-r-lg overflow-visible"
+                    role="button"
+                    tabIndex={0}
+                    className="h-full transition-all min-w-0 cursor-pointer hover:opacity-90 relative first:rounded-l-lg last:rounded-r-lg overflow-visible touch-manipulation"
                     style={{ width: `${seg.pct}%`, backgroundColor: seg.color }}
                     onMouseEnter={() => setCompositionHover(seg)}
+                    onClick={() => setCompositionHover(prev => prev?.label === seg.label ? null : seg)}
+                    onKeyDown={(e) => e.key === 'Enter' && setCompositionHover(prev => prev?.label === seg.label ? null : seg)}
                   >
                     {compositionHover?.label === seg.label && (
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 shadow-lg whitespace-nowrap text-center">
@@ -381,7 +385,7 @@ export function WealthDashboard() {
           <div>
             <SectionTitle>Income</SectionTitle>
             <Card className="p-4 sm:p-5">
-              <ResponsiveContainer width="100%" height={160}>
+              <ResponsiveContainer width="100%" height={140}>
                 <AreaChart data={incomeData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
                   <defs>
                     <linearGradient id="inc-g" x1="0" y1="0" x2="0" y2="1">
@@ -402,7 +406,7 @@ export function WealthDashboard() {
           <div>
             <SectionTitle>Implied Spending</SectionTitle>
             <Card className="p-4 sm:p-5">
-              <ResponsiveContainer width="100%" height={160}>
+              <ResponsiveContainer width="100%" height={140}>
                 <AreaChart data={expenseData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
                   <defs>
                     <linearGradient id="exp-g" x1="0" y1="0" x2="0" y2="1">
@@ -428,7 +432,7 @@ export function WealthDashboard() {
             <SectionTitle>Expense Comparison</SectionTitle>
             <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-2">Tracked (incl. rent) vs implied from wealth</p>
             <Card className="p-4 sm:p-5">
-              <ResponsiveContainer width="100%" height={160}>
+              <ResponsiveContainer width="100%" height={140}>
                 <BarChart data={comparisonData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
                   <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
                   <YAxis hide />
@@ -449,7 +453,7 @@ export function WealthDashboard() {
             <SectionTitle>Savings Rate</SectionTitle>
             <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-2">% of income retained each month</p>
             <Card className="p-4 sm:p-5">
-              <ResponsiveContainer width="100%" height={160}>
+              <ResponsiveContainer width="100%" height={140}>
                 <BarChart data={savingsData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
                   <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
                   <YAxis hide />
@@ -494,7 +498,7 @@ export function WealthDashboard() {
                           {group.label.slice(0, 2).toUpperCase()}
                         </div>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">{group.label}</p>
-                        <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(group.amount)}</p>
+                        <p className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-50 tabular-nums break-all">{formatCurrency(group.amount)}</p>
                         <div className="flex items-center gap-2 mt-2">
                           <div className="flex-1 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden max-w-24">
                             <div className="h-full rounded-full transition-all" style={{ width: `${group.pct}%`, backgroundColor: color }} />
@@ -536,7 +540,7 @@ export function WealthDashboard() {
 
       {/* Insight card — like expenses */}
       {allocation[0] && (
-        <Card className="bg-gradient-to-br from-zinc-900 to-zinc-800 dark:from-zinc-800 dark:to-zinc-900 border-0 p-6 text-white">
+        <Card className="bg-gradient-to-br from-zinc-900 to-zinc-800 dark:from-zinc-800 dark:to-zinc-900 border-0 p-4 sm:p-6 text-white">
           <h2 className="text-xs text-zinc-400 uppercase tracking-wider font-medium mb-3">Insight</h2>
           <p className="text-lg">
             <span className="font-semibold">{allocation[0].label}</span> is your largest allocation at{' '}

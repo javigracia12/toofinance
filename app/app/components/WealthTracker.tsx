@@ -41,7 +41,7 @@ function DeleteRowButton({
   return (
     <button
       onClick={(e) => { e.stopPropagation(); setConfirming(true) }}
-      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/50 text-zinc-400 hover:text-red-500 transition-all"
+      className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 p-2 sm:p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/50 text-zinc-400 hover:text-red-500 transition-all touch-manipulation min-w-[36px] min-h-[36px] flex items-center justify-center"
       aria-label={`Delete ${label}`}
     >
       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -104,11 +104,12 @@ function EditableCell({
       <input
         ref={inputRef}
         type="number"
+        inputMode="decimal"
         value={tempValue}
         onChange={(e) => setTempValue(e.target.value)}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        className={`w-full bg-white dark:bg-zinc-800 text-right px-2 py-1 text-sm tabular-nums rounded-md border border-blue-400 dark:border-blue-500 outline-none ${className}`}
+        className={`w-full bg-white dark:bg-zinc-800 text-right px-2 py-2 sm:py-1 text-sm tabular-nums rounded-md border border-blue-400 dark:border-blue-500 outline-none min-h-[44px] sm:min-h-0 ${className}`}
       />
     )
   }
@@ -116,10 +117,10 @@ function EditableCell({
   return (
     <div
       onClick={handleClick}
-      className={`px-2 py-1 text-right text-sm tabular-nums rounded-md transition-colors ${
+      className={`px-2 py-2 sm:py-1 text-right text-sm tabular-nums rounded-md transition-colors min-h-[44px] sm:min-h-0 flex items-center justify-end ${
         disabled
           ? 'text-zinc-300 dark:text-zinc-600 cursor-default'
-          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-text'
+          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-text touch-manipulation'
       } ${className}`}
     >
       {value ? formatCurrency(value) : placeholder}
@@ -171,7 +172,7 @@ function AddAssetRow({
 
   if (isAdding) {
     return (
-      <div className="pl-8 pr-3 py-2 flex items-center gap-2 flex-wrap">
+      <div className="pl-8 pr-3 py-2 flex flex-col sm:flex-row gap-2 sm:flex-wrap">
         <input
           ref={nameRef}
           type="text"
@@ -179,7 +180,7 @@ function AddAssetRow({
           onChange={(e) => setName(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-40 bg-white dark:bg-zinc-800 px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 outline-none focus:border-blue-400 dark:focus:border-blue-500"
+          className="min-w-0 flex-1 sm:w-40 bg-white dark:bg-zinc-800 px-3 py-2 sm:py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 outline-none focus:border-blue-400 dark:focus:border-blue-500"
         />
         <input
           type="text"
@@ -188,7 +189,7 @@ function AddAssetRow({
           onKeyDown={handleKeyDown}
           onBlur={handleSubmit}
           placeholder={classPlaceholder}
-          className="w-28 bg-white dark:bg-zinc-800 px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 outline-none focus:border-blue-400 dark:focus:border-blue-500"
+          className="min-w-0 flex-1 sm:w-28 bg-white dark:bg-zinc-800 px-3 py-2 sm:py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 outline-none focus:border-blue-400 dark:focus:border-blue-500"
         />
       </div>
     )
@@ -252,7 +253,7 @@ function AddItemRow({
           onBlur={handleSubmit}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-48 bg-white dark:bg-zinc-800 px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 outline-none focus:border-blue-400 dark:focus:border-blue-500"
+          className="w-full max-w-[12rem] sm:w-48 bg-white dark:bg-zinc-800 px-3 py-2 sm:py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 outline-none focus:border-blue-400 dark:focus:border-blue-500"
         />
       </div>
     )
@@ -731,10 +732,10 @@ export function WealthTracker() {
       <div className="space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Wealth</h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Track your net worth over time</p>
+            <h1 className="text-xl sm:text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Wealth</h1>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Track your net worth over time</p>
           </div>
-          <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl">
+          <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl w-fit">
             {years.map(year => (
               <button
                 key={year}
@@ -760,19 +761,19 @@ export function WealthTracker() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Wealth</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Track your net worth over time</p>
+          <h1 className="text-xl sm:text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Wealth</h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Track your net worth over time</p>
         </div>
-        <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl">
+        <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl w-fit">
           {years.map(year => (
             <button
               key={year}
               onClick={() => handleYearChange(year)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+              className={`px-3 sm:px-4 py-2 text-sm font-medium rounded-lg transition-all touch-manipulation ${
                 selectedYear === year
                   ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm'
                   : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
@@ -804,16 +805,16 @@ export function WealthTracker() {
           <p className="text-zinc-500 dark:text-zinc-400 text-sm max-w-sm mx-auto mb-6">
             Add your cash accounts, assets, and debts to see your net worth evolve month by month.
           </p>
-          <div className="flex justify-center gap-3">
+          <div className="flex flex-col sm:flex-row justify-center gap-3">
             <button
               onClick={() => { setExpandedSections(s => ({ ...s, cash: true })); addItem('cash', 'Checking') }}
-              className="px-4 py-2 text-sm font-medium bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors"
+              className="px-4 py-3 sm:py-2 text-sm font-medium bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors touch-manipulation"
             >
               Add Cash Account
             </button>
             <button
               onClick={() => { setExpandedSections(s => ({ ...s, assets: true })); addAsset('Investments', 'Other') }}
-              className="px-4 py-2 text-sm font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+              className="px-4 py-3 sm:py-2 text-sm font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors touch-manipulation"
             >
               Add Asset
             </button>
@@ -824,35 +825,35 @@ export function WealthTracker() {
       {hasData && (
         <>
           {/* Net Worth Summary */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 dark:from-zinc-100 dark:to-zinc-200 rounded-2xl p-5 text-white dark:text-zinc-900">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 dark:from-zinc-100 dark:to-zinc-200 rounded-2xl p-4 sm:p-5 text-white dark:text-zinc-900">
               <p className="text-xs font-medium opacity-70 uppercase tracking-wider">Net Worth</p>
-              <p className="text-2xl font-semibold mt-1 tabular-nums">{formatCurrency(getNetWorth(latestPopulatedMonth))}</p>
+              <p className="text-xl sm:text-2xl font-semibold mt-1 tabular-nums break-all">{formatCurrency(getNetWorth(latestPopulatedMonth))}</p>
               {latestPopulatedMonth > 0 && (
                 <p className="text-xs opacity-50 mt-1">as of {MONTHS[latestPopulatedMonth]}</p>
               )}
             </div>
-            <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
+            <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5">
               <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Assets</p>
-              <p className="text-2xl font-semibold text-green-600 dark:text-green-400 mt-1 tabular-nums">{formatCurrency(getTotal('cash', latestPopulatedMonth) + getTotal('assets', latestPopulatedMonth))}</p>
+              <p className="text-xl sm:text-2xl font-semibold text-green-600 dark:text-green-400 mt-1 tabular-nums break-all">{formatCurrency(getTotal('cash', latestPopulatedMonth) + getTotal('assets', latestPopulatedMonth))}</p>
             </div>
-            <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
+            <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5">
               <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Debts</p>
-              <p className="text-2xl font-semibold text-red-600 dark:text-red-400 mt-1 tabular-nums">{formatCurrency(getTotal('debts', latestPopulatedMonth))}</p>
+              <p className="text-xl sm:text-2xl font-semibold text-red-600 dark:text-red-400 mt-1 tabular-nums break-all">{formatCurrency(getTotal('debts', latestPopulatedMonth))}</p>
             </div>
           </div>
 
           {/* Main Table */}
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden -mx-4 sm:mx-0">
+            <div className="overflow-x-auto overscroll-x-contain">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-zinc-100 dark:border-zinc-800">
-                    <th className="text-left py-4 px-4 text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider sticky left-0 bg-white dark:bg-zinc-900 min-w-[200px] z-10">
+                    <th className="text-left py-4 px-3 sm:px-4 text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider sticky left-0 bg-white dark:bg-zinc-900 min-w-[160px] sm:min-w-[200px] z-10">
                       {selectedYear}
                     </th>
                     {MONTHS.map((m, idx) => (
-                      <th key={idx} className="text-right py-4 px-2 text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider min-w-[85px]">
+                      <th key={idx} className="text-right py-4 px-2 sm:px-3 text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider min-w-[72px] sm:min-w-[85px]">
                         {m}
                       </th>
                     ))}
@@ -880,14 +881,14 @@ export function WealthTracker() {
                   </tr>
                   {expandedSections.cash && yearData.cashAccountNames.map(name => (
                     <tr key={`cash-${name}`} className="group bg-zinc-50/50 dark:bg-zinc-800/20">
-                      <td className="py-1 px-4 pl-10 text-sm text-zinc-600 dark:text-zinc-400 sticky left-0 bg-zinc-50/50 dark:bg-zinc-800/20 z-10">
+                      <td className="py-2 sm:py-1 px-3 sm:px-4 pl-8 sm:pl-10 text-sm text-zinc-600 dark:text-zinc-400 sticky left-0 bg-zinc-50/50 dark:bg-zinc-800/20 z-10">
                         <div className="flex items-center gap-2">
                           <span>{name}</span>
                           <DeleteRowButton onDelete={() => deleteItem('cash', name)} label={name} />
                         </div>
                       </td>
                       {MONTHS.map((_, idx) => (
-                        <td key={idx} className="py-1 px-1">
+                        <td key={idx} className="py-2 sm:py-1 px-1 sm:px-2">
                           <EditableCell
                             value={getCellValue('cash', name, idx)}
                             onChange={(v) => updateCell('cash', name, idx, v)}
@@ -928,7 +929,7 @@ export function WealthTracker() {
                   </tr>
                   {expandedSections.assets && yearData.assetNames.map(name => (
                     <tr key={`asset-${name}`} className="group bg-zinc-50/50 dark:bg-zinc-800/20">
-                      <td className="py-1 px-4 pl-10 text-sm text-zinc-600 dark:text-zinc-400 sticky left-0 bg-zinc-50/50 dark:bg-zinc-800/20 z-10">
+                      <td className="py-2 sm:py-1 px-3 sm:px-4 pl-8 sm:pl-10 text-sm text-zinc-600 dark:text-zinc-400 sticky left-0 bg-zinc-50/50 dark:bg-zinc-800/20 z-10">
                         <div className="flex items-center gap-2">
                           <span>{name}</span>
                           {yearData.assetClasses[name] && (
@@ -940,7 +941,7 @@ export function WealthTracker() {
                         </div>
                       </td>
                       {MONTHS.map((_, idx) => (
-                        <td key={idx} className="py-1 px-1">
+                        <td key={idx} className="py-2 sm:py-1 px-1 sm:px-2">
                           <EditableCell
                             value={getCellValue('asset', name, idx)}
                             onChange={(v) => updateCell('asset', name, idx, v)}
@@ -982,14 +983,14 @@ export function WealthTracker() {
                   </tr>
                   {expandedSections.debts && yearData.debtNames.map(name => (
                     <tr key={`debt-${name}`} className="group bg-zinc-50/50 dark:bg-zinc-800/20">
-                      <td className="py-1 px-4 pl-10 text-sm text-zinc-600 dark:text-zinc-400 sticky left-0 bg-zinc-50/50 dark:bg-zinc-800/20 z-10">
+                      <td className="py-2 sm:py-1 px-3 sm:px-4 pl-8 sm:pl-10 text-sm text-zinc-600 dark:text-zinc-400 sticky left-0 bg-zinc-50/50 dark:bg-zinc-800/20 z-10">
                         <div className="flex items-center gap-2">
                           <span>{name}</span>
                           <DeleteRowButton onDelete={() => deleteItem('debt', name)} label={name} />
                         </div>
                       </td>
                       {MONTHS.map((_, idx) => (
-                        <td key={idx} className="py-1 px-1">
+                        <td key={idx} className="py-2 sm:py-1 px-1 sm:px-2">
                           <EditableCell
                             value={getCellValue('debt', name, idx)}
                             onChange={(v) => updateCell('debt', name, idx, v)}
@@ -1049,7 +1050,7 @@ export function WealthTracker() {
                         </div>
                       </td>
                       {MONTHS.map((_, idx) => (
-                        <td key={idx} className="py-1 px-1">
+                        <td key={idx} className="py-2 sm:py-1 px-1 sm:px-2">
                           <EditableCell
                             value={getCellValue('earning', name, idx)}
                             onChange={(v) => updateCell('earning', name, idx, v)}
@@ -1091,11 +1092,11 @@ export function WealthTracker() {
                   </tr>
                   {expandedSections.investments && yearData.assetNames.map(name => (
                     <tr key={`inv-${name}`} className="bg-zinc-50/50 dark:bg-zinc-800/20">
-                      <td className="py-1 px-4 pl-10 text-sm text-zinc-600 dark:text-zinc-400 sticky left-0 bg-zinc-50/50 dark:bg-zinc-800/20 z-10">
+                      <td className="py-2 sm:py-1 px-3 sm:px-4 pl-8 sm:pl-10 text-sm text-zinc-600 dark:text-zinc-400 sticky left-0 bg-zinc-50/50 dark:bg-zinc-800/20 z-10">
                         → {name}
                       </td>
                       {MONTHS.map((_, idx) => (
-                        <td key={idx} className="py-1 px-1">
+                        <td key={idx} className="py-2 sm:py-1 px-1 sm:px-2">
                           <EditableCell
                             value={getCellValue('investment', name, idx)}
                             onChange={(v) => updateCell('investment', name, idx, v)}
@@ -1138,7 +1139,7 @@ export function WealthTracker() {
                     if (!hasPerf) return null
                     return (
                       <tr key={`perf-${name}`}>
-                        <td className="py-1 px-4 pl-10 text-xs text-zinc-400 dark:text-zinc-500 sticky left-0 bg-white dark:bg-zinc-900 z-10">
+                        <td className="py-2 sm:py-1 px-3 sm:px-4 pl-8 sm:pl-10 text-xs text-zinc-400 dark:text-zinc-500 sticky left-0 bg-white dark:bg-zinc-900 z-10">
                           {name}
                         </td>
                         {MONTHS.map((_, idx) => {

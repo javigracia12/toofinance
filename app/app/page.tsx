@@ -784,7 +784,7 @@ export default function AppPage() {
         </div>
       )}
       <header className="border-b border-zinc-100 dark:border-zinc-800">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4">
+        <div className={`mx-auto px-4 sm:px-6 py-4 ${section === 'wealth' ? 'max-w-6xl' : 'max-w-2xl'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
               {(['expenses', 'wealth'] as const).map((s) => (
@@ -856,7 +856,7 @@ export default function AppPage() {
         </div>
       </header>
 
-      <main className={`mx-auto px-4 sm:px-6 py-6 sm:py-8 ${section === 'wealth' ? 'max-w-6xl' : 'max-w-2xl'}`}>
+      <main className={`mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-10 sm:pb-8 ${section === 'wealth' ? 'max-w-6xl' : 'max-w-2xl'}`}>
         {section === 'wealth' && wealthView === 'tracker' && <WealthTracker />}
         {section === 'wealth' && wealthView === 'dashboard' && <WealthDashboard />}
 
