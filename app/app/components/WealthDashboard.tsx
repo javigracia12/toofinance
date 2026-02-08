@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { formatCurrency } from '@/lib/format'
+import { formatCurrency, formatShortMonth } from '@/lib/format'
+import { CATEGORY_COLORS } from '@/lib/constants'
+import { Card, SectionTitle } from '@/app/app/components/ui'
 import {
   Tooltip,
   ResponsiveContainer,
@@ -12,42 +14,45 @@ import {
   BarChart,
   XAxis,
   YAxis,
-  PieChart,
-  Pie,
   Cell,
 } from 'recharts'
 
-/* ═══════════════════════════════════════════
-   DESIGN SYSTEM – Constrained, intentional
-   ═══════════════════════════════════════════ */
+/* ─── Types ─── */
 
-const PALETTE = {
-  nw:      '#18181b', // Net Worth — zinc 900 (the hero)
-  income:  '#7c3aed', // Violet 600
-  expense: '#e11d48',  // Rose 600
-  savings: '#059669', // Emerald 600
-  cash:    '#2563eb', // Blue 600
-  invest:  '#10b981', // Emerald 500
-  tracked: '#a1a1aa', // Zinc 400
+type ChartPoint = { month: string; value: number }
+type ComparisonPoint = { month: string; implied: number; tracked: number }
+type SavingsPoint = { month: string; rate: number }
+type NWBreakdownPoint = { month: string; cash: number; assets: number }
+type AllocationGroup = {
+  label: string
+  amount: number
+  pct: number
+  assets: { name: string; amount: number; pct: number }[]
 }
 
-const ALLOC_COLORS = ['#2563eb', '#10b981', '#7c3aed', '#f59e0b', '#e11d48', '#06b6d4', '#84cc16', '#6366f1']
+/* Colors: same palette as Expenses for consistency */
+const CASH_COLOR = '#3b82f6'
+const INVEST_COLOR = '#22c55e'
+const INCOME_CHART_COLOR = '#8b5cf6'
+const SPENDING_CHART_COLOR = '#ef4444'
+const TRACKED_CHART_COLOR = '#a1a1aa'
 
-/* Tooltip — frosted glass, minimal */
-function Tip({ active, payload, label }: {
+/* ─── Tooltips ─── */
+
+function ChartTip({ active, payload, label }: {
   active?: boolean
   payload?: { value: number; name?: string; dataKey?: string; color?: string; fill?: string }[]
   label?: string
 }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-2xl bg-white/90 dark:bg-zinc-800/90 backdrop-blur-xl px-4 py-3 shadow-2xl shadow-black/10 dark:shadow-black/30 border border-white/20 dark:border-zinc-700/30">
-      {label && <p className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 mb-1.5 tracking-wide">{label}</p>}
+    <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 px-3 py-2 shadow-lg">
+      {label && <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">{label}</p>}
       {payload.map((e, i) => (
         <div key={i} className="flex items-center gap-2 py-0.5">
-          <span className="w-[7px] h-[7px] rounded-full" style={{ backgroundColor: e.color || e.fill }} />
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{e.name || e.dataKey}</span>
-          <span className="font-semibold text-[13px] text-zinc-900 dark:text-zinc-100 ml-auto pl-4 tabular-nums">
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: e.color || e.fill }} />
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">{e.name || e.dataKey}</span>
+          <span className="font-medium text-zinc-900 dark:text-zinc-100 ml-auto tabular-nums text-sm">
             {formatCurrency(Number(e.value) || 0)}
           </span>
         </div>
@@ -63,13 +68,13 @@ function PctTip({ active, payload, label }: {
 }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-2xl bg-white/90 dark:bg-zinc-800/90 backdrop-blur-xl px-4 py-3 shadow-2xl shadow-black/10 dark:shadow-black/30 border border-white/20 dark:border-zinc-700/30">
-      {label && <p className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 mb-1.5 tracking-wide">{label}</p>}
+    <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 px-3 py-2 shadow-lg">
+      {label && <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">{label}</p>}
       {payload.map((e, i) => (
         <div key={i} className="flex items-center gap-2 py-0.5">
-          <span className="w-[7px] h-[7px] rounded-full" style={{ backgroundColor: e.color || e.fill }} />
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{e.name}</span>
-          <span className="font-semibold text-[13px] text-zinc-900 dark:text-zinc-100 ml-auto pl-4 tabular-nums">
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: e.color || e.fill }} />
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">{e.name}</span>
+          <span className="font-medium text-zinc-900 dark:text-zinc-100 ml-auto tabular-nums text-sm">
             {Number(e.value).toFixed(1)}%
           </span>
         </div>
@@ -78,22 +83,7 @@ function PctTip({ active, payload, label }: {
   )
 }
 
-/* ═══════════════════════════════════════════
-   DATA TYPES
-   ═══════════════════════════════════════════ */
-
-type ChartPoint = { month: string; value: number }
-type ComparisonPoint = { month: string; implied: number; tracked: number }
-type SavingsPoint = { month: string; rate: number }
-type NWBreakdownPoint = { month: string; cash: number; assets: number }
-type AllocationGroup = {
-  label: string; amount: number; pct: number
-  assets: { name: string; amount: number; pct: number }[]
-}
-
-/* ═══════════════════════════════════════════
-   COMPONENT
-   ═══════════════════════════════════════════ */
+/* ─── Component ─── */
 
 export function WealthDashboard() {
   const supabase = useMemo(() => createClient(), [])
@@ -108,7 +98,6 @@ export function WealthDashboard() {
   const [comparisonData, setComparisonData] = useState<ComparisonPoint[]>([])
   const [savingsData, setSavingsData] = useState<SavingsPoint[]>([])
 
-  /* ── Data loading (unchanged logic) ── */
   const loadDashboardData = useCallback(async () => {
     setLoading(true)
     try {
@@ -231,327 +220,322 @@ export function WealthDashboard() {
 
   useEffect(() => { loadDashboardData() }, [loadDashboardData])
 
-  /* ── Derived values ── */
   const latest = netWorthData[netWorthData.length - 1] ?? null
-  const prev = netWorthData[netWorthData.length - 2] ?? null
-  const delta = latest && prev ? latest.value - prev.value : null
-  const deltaPct = delta !== null && prev && prev.value !== 0 ? (delta / Math.abs(prev.value)) * 100 : null
+  const prevNw = netWorthData[netWorthData.length - 2] ?? null
+  const delta = latest && prevNw ? latest.value - prevNw.value : null
+  const deltaPct = delta !== null && prevNw && prevNw.value !== 0 ? (delta / Math.abs(prevNw.value)) * 100 : null
 
   const latestBreakdown = nwBreakdown[nwBreakdown.length - 1] ?? null
   const totalAssets = latestBreakdown ? latestBreakdown.cash + latestBreakdown.assets : 0
   const cashPct = totalAssets > 0 && latestBreakdown ? (latestBreakdown.cash / totalAssets) * 100 : 0
   const investPct = 100 - cashPct
 
-  /* ═══════════════════════════════════════════
-     RENDER
-     ═══════════════════════════════════════════ */
+  const maxNw = Math.max(...netWorthData.map(d => d.value), 1)
 
   if (loading) {
     return (
-      <div className="space-y-6 py-2">
-        <div className="h-44 rounded-[28px] bg-zinc-100 dark:bg-zinc-800/40 animate-pulse" />
-        <div className="grid grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map(i => <div key={i} className="h-24 rounded-2xl bg-zinc-100 dark:bg-zinc-800/40 animate-pulse" />)}
+      <div className="space-y-10">
+        <div className="text-center py-8">
+          <div className="h-10 bg-zinc-100 dark:bg-zinc-800 rounded-xl w-32 mx-auto mb-4 animate-pulse" />
+          <div className="h-14 bg-zinc-100 dark:bg-zinc-800 rounded-xl w-48 mx-auto animate-pulse" />
         </div>
-        <div className="h-56 rounded-2xl bg-zinc-100 dark:bg-zinc-800/40 animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[1, 2, 3].map(i => <div key={i} className="h-28 bg-zinc-100 dark:bg-zinc-800 rounded-2xl animate-pulse" />)}
+        </div>
       </div>
     )
   }
 
   if (!netWorthData.length && !allocation.length) {
     return (
-      <div className="flex flex-col items-center justify-center py-28 text-center">
-        <div className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800/60 flex items-center justify-center mb-5">
-          <svg className="w-7 h-7 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
-          </svg>
-        </div>
-        <p className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-1">No data yet</p>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-xs">Start tracking in the Tracker tab to see your financial overview.</p>
+      <div className="text-center py-16">
+        <p className="text-zinc-400 dark:text-zinc-500">Add wealth data in the Tracker tab to see your overview.</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-8 pb-6">
+    <div className="space-y-10">
 
-      {/* ════════════════════════════════
-         1. HERO — Net Worth
-         Apple Card inspired: big number, clean surface
-         ════════════════════════════════ */}
-      <div className="relative rounded-[28px] bg-zinc-950 dark:bg-white overflow-hidden">
-        {/* Subtle gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.04] via-transparent to-white/[0.02] dark:from-black/[0.03] dark:to-transparent" />
-        <div className="relative px-8 pt-8 pb-10 sm:px-10 sm:pt-10 sm:pb-12">
-          <p className="text-[13px] font-medium tracking-wide text-zinc-500 dark:text-zinc-400">Net Worth</p>
-          <p className="mt-2 text-[42px] sm:text-[52px] font-bold tabular-nums tracking-tight leading-none text-white dark:text-zinc-900">
-            {latest ? formatCurrency(latest.value) : '—'}
+      {/* Hero — same pattern as expenses dashboard */}
+      <div className="text-center py-4 sm:py-6">
+        <p className="text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">
+          Net Worth {latest && `· ${latest.month}`}
+        </p>
+        <p className="mt-2 text-4xl sm:text-5xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">
+          {latest ? formatCurrency(latest.value) : '—'}
+        </p>
+        {delta !== null && (
+          <p className={`mt-2 text-sm font-medium ${delta >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+            {delta >= 0 ? '↑' : '↓'} {delta >= 0 ? '+' : ''}{formatCurrency(delta)}
+            {deltaPct !== null && ` (${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(0)}%)`} vs last month
           </p>
-          {delta !== null && (
-            <div className="mt-4 flex items-center gap-3">
-              <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[13px] font-semibold tabular-nums ${
-                delta >= 0
-                  ? 'bg-emerald-500/15 text-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-600'
-                  : 'bg-red-500/15 text-red-400 dark:bg-red-500/10 dark:text-red-600'
-              }`}>
-                {delta >= 0 ? '↑' : '↓'} {delta >= 0 ? '+' : ''}{formatCurrency(delta)}
-                {deltaPct !== null && ` (${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(1)}%)`}
-              </span>
-              <span className="text-[13px] text-zinc-500">vs previous month</span>
-            </div>
-          )}
-
-          {/* Net Worth mini-chart embedded in hero */}
-          {netWorthData.length > 1 && (
-            <div className="mt-6 -mx-2">
-              <ResponsiveContainer width="100%" height={80}>
-                <AreaChart data={netWorthData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="hero-nw" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#ffffff" stopOpacity={0.12} />
-                      <stop offset="100%" stopColor="#ffffff" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="hero-nw-dark" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#18181b" stopOpacity={0.08} />
-                      <stop offset="100%" stopColor="#18181b" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <Area type="monotone" dataKey="value" stroke="rgba(255,255,255,0.25)" fill="url(#hero-nw)" strokeWidth={1.5} dot={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ════════════════════════════════
-         2. KPI GRID — 2x2 on mobile, 4 on desktop
-         Minimal: just the number, the label, the meaning
-         ════════════════════════════════ */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: 'Income', value: incomeData[incomeData.length - 1]?.value ?? null, color: PALETTE.income },
-          { label: 'Spending', value: expenseData[expenseData.length - 1]?.value ?? null, color: PALETTE.expense },
-          { label: 'Savings Rate', value: savingsData[savingsData.length - 1]?.rate ?? null, color: PALETTE.savings, suffix: '%' },
-          { label: 'Cash Ratio', value: totalAssets > 0 ? Math.round(cashPct) : null, color: PALETTE.cash, suffix: '%' },
-        ].map(m => (
-          <div
-            key={m.label}
-            className="rounded-2xl bg-white dark:bg-zinc-900 p-5 transition-shadow hover:shadow-lg"
-            style={{ borderLeft: `3px solid ${m.color}` }}
-          >
-            <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">{m.label}</p>
-            <p className="mt-2 text-[22px] font-bold tabular-nums text-zinc-900 dark:text-zinc-100 leading-tight">
-              {m.value != null ? (m.suffix ? `${m.value}${m.suffix}` : formatCurrency(m.value)) : '—'}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* ════════════════════════════════
-         3. NET WORTH EVOLUTION — full-width, clean
-         Apple Health style: large chart, no gridlines
-         ════════════════════════════════ */}
-      {netWorthData.length > 1 && (
-        <section className="rounded-2xl bg-white dark:bg-zinc-900 p-6">
-          <p className="text-[13px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-6">Net Worth Over Time</p>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={netWorthData} margin={{ top: 4, right: 0, left: 0, bottom: 4 }}>
-              <defs>
-                <linearGradient id="nw-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={PALETTE.nw} stopOpacity={0.08} />
-                  <stop offset="100%" stopColor={PALETTE.nw} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
-              <YAxis hide domain={['auto', 'auto']} />
-              <Tooltip content={<Tip />} />
-              <Area type="monotone" dataKey="value" name="Net Worth" stroke={PALETTE.nw} className="dark:stroke-zinc-300" fill="url(#nw-fill)" strokeWidth={2} dot={false} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </section>
-      )}
-
-      {/* ════════════════════════════════
-         4. INCOME vs EXPENSES — side by side area charts
-         Paired for comparison
-         ════════════════════════════════ */}
-      {(incomeData.length > 0 || expenseData.length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {[
-            { data: incomeData, label: 'Income', color: PALETTE.income, id: 'inc' },
-            { data: expenseData, label: 'Spending (implied)', color: PALETTE.expense, id: 'exp' },
-          ].map(({ data, label, color, id }) => (
-            <section key={id} className="rounded-2xl bg-white dark:bg-zinc-900 p-6">
-              <p className="text-[13px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-5">{label}</p>
-              {data.length > 0 ? (
-                <ResponsiveContainer width="100%" height={140}>
-                  <AreaChart data={data} margin={{ top: 4, right: 0, left: 0, bottom: 4 }}>
-                    <defs>
-                      <linearGradient id={`${id}-f`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={color} stopOpacity={0.15} />
-                        <stop offset="100%" stopColor={color} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
-                    <YAxis hide domain={['auto', 'auto']} />
-                    <Tooltip content={<Tip />} />
-                    <Area type="monotone" dataKey="value" name={label} stroke={color} fill={`url(#${id}-f)`} strokeWidth={2} dot={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-[140px] flex items-center justify-center text-sm text-zinc-400">No data</div>
-              )}
-            </section>
-          ))}
-        </div>
-      )}
-
-      {/* ════════════════════════════════
-         5. COMPOSITION BAR — Apple Storage style
-         Single horizontal segmented bar
-         ════════════════════════════════ */}
-      {latestBreakdown && totalAssets > 0 && (
-        <section className="rounded-2xl bg-white dark:bg-zinc-900 p-6">
-          <p className="text-[13px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-5">
-            Composition {latest && <span className="font-normal normal-case">· {latest.month}</span>}
-          </p>
-          {/* The bar */}
-          <div className="h-3 rounded-full overflow-hidden flex bg-zinc-100 dark:bg-zinc-800">
-            <div className="h-full transition-all duration-500" style={{ width: `${cashPct}%`, backgroundColor: PALETTE.cash }} />
-            <div className="h-full transition-all duration-500" style={{ width: `${investPct}%`, backgroundColor: PALETTE.invest }} />
-          </div>
-          {/* Legend */}
-          <div className="mt-4 flex gap-8">
-            <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PALETTE.cash }} />
-              <span className="text-sm text-zinc-600 dark:text-zinc-400">Cash</span>
-              <span className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{cashPct.toFixed(0)}%</span>
-              <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">{formatCurrency(latestBreakdown.cash)}</span>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PALETTE.invest }} />
-              <span className="text-sm text-zinc-600 dark:text-zinc-400">Investments</span>
-              <span className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{investPct.toFixed(0)}%</span>
-              <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">{formatCurrency(latestBreakdown.assets)}</span>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ════════════════════════════════
-         6. EXPENSE COMPARISON + SAVINGS — side by side
-         ════════════════════════════════ */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        {comparisonData.length > 0 && (
-          <section className="rounded-2xl bg-white dark:bg-zinc-900 p-6">
-            <p className="text-[13px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1">Expense Comparison</p>
-            <p className="text-[12px] text-zinc-400 dark:text-zinc-500 mb-5">Tracked (incl. rent) vs implied from wealth</p>
-            <ResponsiveContainer width="100%" height={170}>
-              <BarChart data={comparisonData} margin={{ top: 4, right: 0, left: 0, bottom: 4 }} barGap={2}>
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
-                <YAxis hide />
-                <Tooltip content={<Tip />} />
-                <Bar dataKey="implied" name="Implied" fill={PALETTE.expense} radius={[4, 4, 0, 0]} />
-                <Bar dataKey="tracked" name="Tracked" fill={PALETTE.tracked} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-            <div className="mt-3 flex gap-5">
-              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: PALETTE.expense }} /><span className="text-[11px] text-zinc-400">Implied</span></div>
-              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: PALETTE.tracked }} /><span className="text-[11px] text-zinc-400">Tracked</span></div>
-            </div>
-          </section>
-        )}
-
-        {savingsData.length > 0 && (
-          <section className="rounded-2xl bg-white dark:bg-zinc-900 p-6">
-            <p className="text-[13px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1">Savings Rate</p>
-            <p className="text-[12px] text-zinc-400 dark:text-zinc-500 mb-5">% of income retained each month</p>
-            <ResponsiveContainer width="100%" height={170}>
-              <BarChart data={savingsData} margin={{ top: 4, right: 0, left: 0, bottom: 4 }}>
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
-                <YAxis hide />
-                <Tooltip content={<PctTip />} />
-                <Bar dataKey="rate" name="Savings Rate" radius={[4, 4, 0, 0]}>
-                  {savingsData.map((d, i) => (
-                    <Cell key={i} fill={d.rate >= 0 ? PALETTE.savings : PALETTE.expense} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </section>
         )}
       </div>
 
-      {/* ════════════════════════════════
-         7. ALLOCATION — Donut + list in one surface
-         ════════════════════════════════ */}
-      {allocation.length > 0 && (
-        <section className="rounded-2xl bg-white dark:bg-zinc-900 overflow-hidden">
-          <div className="px-6 pt-6 pb-2">
-            <p className="text-[13px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-              Allocation
+      {/* Summary cards — like Predictions */}
+      <div>
+        <SectionTitle>Summary</SectionTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Card className="p-4 sm:p-5">
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Income</p>
+            <p className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">
+              {incomeData.length > 0 ? formatCurrency(incomeData[incomeData.length - 1].value) : '—'}
             </p>
-            {allocationMonth && <p className="text-[12px] text-zinc-400 dark:text-zinc-500 mt-0.5">As of {allocationMonth}</p>}
-          </div>
+            {incomeData.length > 0 && <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{incomeData[incomeData.length - 1].month}</p>}
+          </Card>
+          <Card className="p-4 sm:p-5">
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Implied Spending</p>
+            <p className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">
+              {expenseData.length > 0 ? formatCurrency(expenseData[expenseData.length - 1].value) : '—'}
+            </p>
+            {expenseData.length > 0 && <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{expenseData[expenseData.length - 1].month}</p>}
+          </Card>
+          <Card className="p-4 sm:p-5">
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Savings Rate</p>
+            <p className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">
+              {savingsData.length > 0 ? `${savingsData[savingsData.length - 1].rate}%` : '—'}
+            </p>
+            {savingsData.length > 0 && <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{savingsData[savingsData.length - 1].month}</p>}
+          </Card>
+        </div>
+      </div>
 
-          <div className="flex flex-col md:flex-row">
-            {/* Donut */}
-            <div className="md:w-64 flex items-center justify-center py-6 px-4">
-              <div className="w-44 h-44">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={allocation} cx="50%" cy="50%" innerRadius="58%" outerRadius="88%" paddingAngle={2} dataKey="amount" nameKey="label" stroke="none">
-                      {allocation.map((g, i) => (
-                        <Cell key={g.label} fill={ALLOC_COLORS[i % ALLOC_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<Tip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* List */}
-            <div className="flex-1 border-t md:border-t-0 md:border-l border-zinc-100 dark:border-zinc-800/60">
-              {allocation.map((group, gi) => {
-                const color = ALLOC_COLORS[gi % ALLOC_COLORS.length]
-                const isOpen = expandedGroup === group.label
-                const hasKids = group.assets.length > 0
+      {/* Net Worth Trend — like 6-Month Trend (vertical bars) */}
+      {netWorthData.length > 0 && (
+        <div>
+          <SectionTitle>Net Worth Over Time</SectionTitle>
+          <Card className="p-4 sm:p-6">
+            <div className="flex items-end gap-2 sm:gap-4 h-48 sm:h-64">
+              {netWorthData.map((d) => {
+                const barHeightPct = maxNw > 0 ? Math.max((d.value / maxNw) * 100, 8) : 8
                 return (
-                  <div key={group.label} className="border-b border-zinc-50 dark:border-zinc-800/50 last:border-0">
-                    <button
-                      type="button"
-                      onClick={() => hasKids && setExpandedGroup(isOpen ? null : group.label)}
-                      className={`w-full flex items-center px-5 py-3.5 text-left ${hasKids ? 'hover:bg-zinc-50 dark:hover:bg-zinc-800/30 cursor-pointer' : 'cursor-default'} transition-colors`}
-                    >
-                      <span className="w-[10px] h-[10px] rounded-full shrink-0 mr-3" style={{ backgroundColor: color }} />
-                      <span className="flex-1 font-medium text-[14px] text-zinc-900 dark:text-zinc-100">{group.label}</span>
-                      <span className="text-[14px] font-semibold tabular-nums text-zinc-900 dark:text-zinc-100 mr-3">{formatCurrency(group.amount)}</span>
-                      <span className="text-[13px] tabular-nums text-zinc-400 dark:text-zinc-500 w-12 text-right">{group.pct.toFixed(0)}%</span>
-                      {hasKids && (
-                        <svg className={`w-4 h-4 ml-2 text-zinc-300 dark:text-zinc-600 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
-                      )}
-                    </button>
-                    {hasKids && isOpen && (
-                      <div className="pb-2">
-                        {group.assets.map(a => (
-                          <div key={`${group.label}-${a.name}`} className="flex items-center px-5 py-2 pl-11">
-                            <span className="flex-1 text-[13px] text-zinc-500 dark:text-zinc-400">{a.name}</span>
-                            <span className="text-[13px] font-medium tabular-nums text-zinc-700 dark:text-zinc-300 mr-3">{formatCurrency(a.amount)}</span>
-                            <span className="text-[12px] tabular-nums text-zinc-400 dark:text-zinc-500 w-12 text-right">{a.pct.toFixed(1)}%</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                  <div
+                    key={d.month}
+                    className="flex-1 flex flex-col items-center gap-2 sm:gap-3 group min-w-0"
+                  >
+                    <span className="text-[10px] sm:text-xs text-zinc-400 dark:text-zinc-500 tabular-nums group-hover:text-zinc-600 dark:group-hover:text-zinc-400 truncate w-full text-center hidden sm:block">
+                      {formatCurrency(d.value)}
+                    </span>
+                    <div className="w-full h-36 sm:h-48 flex flex-col justify-end items-center">
+                      <div
+                        className="w-full max-w-12 sm:max-w-16 rounded-t-lg bg-zinc-300 dark:bg-zinc-600 hover:bg-zinc-400 dark:hover:bg-zinc-500 transition-all"
+                        style={{ height: `${barHeightPct}%`, minHeight: 20 }}
+                      />
+                    </div>
+                    <span className="text-[10px] sm:text-xs font-medium text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 whitespace-nowrap">
+                      {formatShortMonth(d.month)}
+                    </span>
                   </div>
                 )
               })}
             </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Composition — like Spend mix (stacked bar + legend) */}
+      {(() => {
+        const compSegments = allocation.length > 0
+          ? allocation.map((g, i) => ({ label: g.label, amount: g.amount, pct: g.pct, color: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }))
+          : latestBreakdown && totalAssets > 0
+            ? [
+                { label: 'Cash', amount: latestBreakdown.cash, pct: cashPct, color: CASH_COLOR },
+                { label: 'Investments', amount: latestBreakdown.assets, pct: investPct, color: INVEST_COLOR },
+              ]
+            : []
+        if (compSegments.length === 0) return null
+        return (
+          <div>
+            <SectionTitle>Composition {allocationMonth && `· ${allocationMonth}`}</SectionTitle>
+            <Card className="p-4 sm:p-5">
+              <div className="w-full h-8 sm:h-10 rounded-lg overflow-hidden flex">
+                {compSegments.filter(s => s.pct > 0).map((seg) => (
+                  <div
+                    key={seg.label}
+                    className="h-full transition-all min-w-0"
+                    style={{ width: `${seg.pct}%`, backgroundColor: seg.color }}
+                    title={`${seg.label}: ${formatCurrency(seg.amount)} (${seg.pct.toFixed(0)}%)`}
+                  />
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+                {compSegments.filter(s => s.pct > 0).map((seg) => (
+                  <span key={seg.label} className="inline-flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
+                    {seg.label} {seg.pct.toFixed(0)}% · {formatCurrency(seg.amount)}
+                  </span>
+                ))}
+              </div>
+            </Card>
           </div>
-        </section>
+        )
+      })()}
+
+      {/* Income & Spending — Area charts in Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {incomeData.length > 0 && (
+          <div>
+            <SectionTitle>Income</SectionTitle>
+            <Card className="p-4 sm:p-5">
+              <ResponsiveContainer width="100%" height={160}>
+                <AreaChart data={incomeData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                  <defs>
+                    <linearGradient id="inc-g" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={INCOME_CHART_COLOR} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={INCOME_CHART_COLOR} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
+                  <YAxis hide domain={['auto', 'auto']} />
+                  <Tooltip content={<ChartTip />} />
+                  <Area type="monotone" dataKey="value" name="Income" stroke={INCOME_CHART_COLOR} fill="url(#inc-g)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </Card>
+          </div>
+        )}
+        {expenseData.length > 0 && (
+          <div>
+            <SectionTitle>Implied Spending</SectionTitle>
+            <Card className="p-4 sm:p-5">
+              <ResponsiveContainer width="100%" height={160}>
+                <AreaChart data={expenseData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                  <defs>
+                    <linearGradient id="exp-g" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={SPENDING_CHART_COLOR} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={SPENDING_CHART_COLOR} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
+                  <YAxis hide domain={['auto', 'auto']} />
+                  <Tooltip content={<ChartTip />} />
+                  <Area type="monotone" dataKey="value" name="Spending" stroke={SPENDING_CHART_COLOR} fill="url(#exp-g)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* Expense comparison & Savings rate — bar charts in Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {comparisonData.length > 0 && (
+          <div>
+            <SectionTitle>Expense Comparison</SectionTitle>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-2">Tracked (incl. rent) vs implied from wealth</p>
+            <Card className="p-4 sm:p-5">
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={comparisonData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
+                  <YAxis hide />
+                  <Tooltip content={<ChartTip />} />
+                  <Bar dataKey="implied" name="Implied" fill={SPENDING_CHART_COLOR} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="tracked" name="Tracked" fill={TRACKED_CHART_COLOR} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="flex gap-4 mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: SPENDING_CHART_COLOR }} />Implied</span>
+                <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full flex-shrink-0 bg-zinc-400" />Tracked</span>
+              </div>
+            </Card>
+          </div>
+        )}
+        {savingsData.length > 0 && (
+          <div>
+            <SectionTitle>Savings Rate</SectionTitle>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-2">% of income retained each month</p>
+            <Card className="p-4 sm:p-5">
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={savingsData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
+                  <YAxis hide />
+                  <Tooltip content={<PctTip />} />
+                  <Bar dataKey="rate" name="Savings %" radius={[4, 4, 0, 0]}>
+                    {savingsData.map((d, i) => (
+                      <Cell key={i} fill={d.rate >= 0 ? '#22c55e' : '#ef4444'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* Allocation — like By Category (grid of colored cards) */}
+      {allocation.length > 0 && (
+        <div>
+          <SectionTitle>Asset Allocation {allocationMonth && `· ${allocationMonth}`}</SectionTitle>
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            {allocation.map((group, gi) => {
+              const color = CATEGORY_COLORS[gi % CATEGORY_COLORS.length]
+              const isOpen = expandedGroup === group.label
+              const isOther = expandedGroup && expandedGroup !== group.label
+              const hasKids = group.assets.length > 0
+              return (
+                <button
+                  key={group.label}
+                  type="button"
+                  onClick={() => hasKids && setExpandedGroup(isOpen ? null : group.label)}
+                  className={`relative overflow-hidden rounded-2xl p-4 text-left transition-all ${!hasKids ? 'cursor-default' : 'hover:scale-[1.02]'} ${isOpen ? 'ring-2 ring-zinc-900 dark:ring-zinc-100 ring-offset-2 dark:ring-offset-zinc-900' : ''} ${isOther ? 'opacity-40' : ''}`}
+                  style={{ backgroundColor: `${color}10` }}
+                >
+                  <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-30" style={{ backgroundColor: color }} />
+                  <div className="relative">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold mb-3" style={{ backgroundColor: color }}>
+                      {group.label.slice(0, 2).toUpperCase()}
+                    </div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">{group.label}</p>
+                    <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(group.amount)}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="flex-1 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${group.pct}%`, backgroundColor: color }} />
+                      </div>
+                      <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">{group.pct.toFixed(0)}%</span>
+                    </div>
+                  </div>
+                  {hasKids && (
+                    <div className="absolute top-3 right-3">
+                      <svg className={`w-4 h-4 text-zinc-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+          {expandedGroup && (() => {
+            const g = allocation.find(x => x.label === expandedGroup)
+            if (!g?.assets?.length) return null
+            return (
+              <div className="space-y-2 mt-2">
+                {g.assets.map((a) => (
+                  <Card key={a.name} className="p-3 flex items-center justify-between">
+                    <span className="text-sm text-zinc-600 dark:text-zinc-400">{a.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium tabular-nums text-zinc-900 dark:text-zinc-100">{formatCurrency(a.amount)}</span>
+                      <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">{a.pct.toFixed(1)}%</span>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
+      {/* Insight card — like expenses */}
+      {allocation[0] && (
+        <Card className="bg-gradient-to-br from-zinc-900 to-zinc-800 dark:from-zinc-800 dark:to-zinc-900 border-0 p-6 text-white">
+          <h2 className="text-xs text-zinc-400 uppercase tracking-wider font-medium mb-3">Insight</h2>
+          <p className="text-lg">
+            <span className="font-semibold">{allocation[0].label}</span> is your largest allocation at{' '}
+            <span className="font-semibold">{allocation[0].pct.toFixed(0)}%</span> of your wealth
+            {allocationMonth && ` as of ${allocationMonth}`}.
+          </p>
+        </Card>
       )}
     </div>
   )
