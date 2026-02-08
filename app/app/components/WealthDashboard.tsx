@@ -413,7 +413,7 @@ export function WealthDashboard() {
                   <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
                   <YAxis hide domain={['auto', 'auto']} />
                   <Tooltip content={<ChartTip />} />
-                  <Area type="monotone" dataKey="value" name="Spending" stroke={SPENDING_CHART_COLOR} fill="url(#exp-g)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="value" name="Spending" stroke={IMPLIED_COLOR} fill="url(#exp-g)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             </Card>
@@ -433,7 +433,7 @@ export function WealthDashboard() {
                   <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
                   <YAxis hide />
                   <Tooltip content={<ChartTip />} />
-                  <Bar dataKey="implied" name="Implied" fill={SPENDING_CHART_COLOR} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="implied" name="Implied" fill={IMPLIED_COLOR} radius={[4, 4, 0, 0]} />
                   <Bar dataKey="tracked" name="Tracked" fill={TRACKED_CHART_COLOR} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
