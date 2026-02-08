@@ -662,12 +662,21 @@ export function WealthTracker() {
   const getNetWorth = (month: number) =>
     getTotal('cash', month) + getTotal('assets', month) - getTotal('debts', month)
 
+  // A month is "populated" if its snapshot exists and has any non-zero balance values.
+  // If all values are 0 (or snapshot missing), the user hasn't entered data for that month yet.
+  const isMonthPopulated = (month: number): boolean => {
+    const snapshot = yearData.snapshots[month]
+    if (!snapshot) return false
+    const all = [...snapshot.cashAccounts, ...snapshot.assets, ...snapshot.debts]
+    return all.some(i => i.amount !== 0)
+  }
+
   const getAssetPerformance = (month: number): number | null => {
     if (month === 0) return null
-    const prev = month - 1
-    if (!yearData.snapshots[prev] && !yearData.snapshots[month]) return null
+    // Both months must have actual data; otherwise the delta is meaningless
+    if (!isMonthPopulated(month) || !isMonthPopulated(month - 1)) return null
 
-    const deltaAssets = getTotal('assets', month) - getTotal('assets', prev)
+    const deltaAssets = getTotal('assets', month) - getTotal('assets', month - 1)
     const investments = getTotal('investments', month)
 
     return deltaAssets - investments
@@ -677,11 +686,10 @@ export function WealthTracker() {
   // (Asset appreciation reduces "savings" so we add it back to get true spending)
   const getImpliedSpending = (month: number): number | null => {
     if (month === 0) return null
-    const prev = month - 1
-    if (!yearData.snapshots[prev] && !yearData.snapshots[month]) return null
+    if (!isMonthPopulated(month) || !isMonthPopulated(month - 1)) return null
 
     const income = getTotal('earnings', month)
-    const deltaNetWorth = getNetWorth(month) - getNetWorth(prev)
+    const deltaNetWorth = getNetWorth(month) - getNetWorth(month - 1)
     const assetAppreciation = getAssetPerformance(month) ?? 0
 
     return income - deltaNetWorth + assetAppreciation
@@ -689,12 +697,21 @@ export function WealthTracker() {
 
   const getAssetPerformanceFor = (name: string, month: number): number | null => {
     if (month === 0) return null
+    if (!isMonthPopulated(month)) return null
     const prevVal = getCellValue('asset', name, month - 1)
     const currVal = getCellValue('asset', name, month)
     const inv = getCellValue('investment', name, month)
     if (prevVal === 0 && currVal === 0) return null
     return currVal - prevVal - inv
   }
+
+  // Find the latest month with actual data for summary cards
+  const latestPopulatedMonth = useMemo(() => {
+    for (let m = 12; m >= 0; m--) {
+      if (isMonthPopulated(m)) return m
+    }
+    return 0
+  }, [yearData])
 
   const toggleSection = (s: string) =>
     setExpandedSections(prev => ({ ...prev, [s]: !prev[s] }))
@@ -810,15 +827,18 @@ export function WealthTracker() {
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 dark:from-zinc-100 dark:to-zinc-200 rounded-2xl p-5 text-white dark:text-zinc-900">
               <p className="text-xs font-medium opacity-70 uppercase tracking-wider">Net Worth</p>
-              <p className="text-2xl font-semibold mt-1 tabular-nums">{formatCurrency(getNetWorth(new Date().getMonth() + 1))}</p>
+              <p className="text-2xl font-semibold mt-1 tabular-nums">{formatCurrency(getNetWorth(latestPopulatedMonth))}</p>
+              {latestPopulatedMonth > 0 && (
+                <p className="text-xs opacity-50 mt-1">as of {MONTHS[latestPopulatedMonth]}</p>
+              )}
             </div>
             <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
               <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Assets</p>
-              <p className="text-2xl font-semibold text-green-600 dark:text-green-400 mt-1 tabular-nums">{formatCurrency(getTotal('assets', new Date().getMonth() + 1))}</p>
+              <p className="text-2xl font-semibold text-green-600 dark:text-green-400 mt-1 tabular-nums">{formatCurrency(getTotal('cash', latestPopulatedMonth) + getTotal('assets', latestPopulatedMonth))}</p>
             </div>
             <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
               <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Debts</p>
-              <p className="text-2xl font-semibold text-red-600 dark:text-red-400 mt-1 tabular-nums">{formatCurrency(getTotal('debts', new Date().getMonth() + 1))}</p>
+              <p className="text-2xl font-semibold text-red-600 dark:text-red-400 mt-1 tabular-nums">{formatCurrency(getTotal('debts', latestPopulatedMonth))}</p>
             </div>
           </div>
 
