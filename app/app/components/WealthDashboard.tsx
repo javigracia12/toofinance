@@ -12,6 +12,8 @@ import {
   AreaChart,
   Bar,
   BarChart,
+  Line,
+  LineChart,
   XAxis,
   YAxis,
   Cell,
@@ -30,12 +32,14 @@ type AllocationGroup = {
   assets: { name: string; amount: number; pct: number }[]
 }
 
-/* Colors: same palette as Expenses for consistency */
+/* Colors: softer palette matching design */
 const CASH_COLOR = '#3b82f6'
-const INVEST_COLOR = '#22c55e'
+const INVEST_COLOR = '#14b8a6'
 const INCOME_CHART_COLOR = '#8b5cf6'
-const SPENDING_CHART_COLOR = '#ef4444'
-const TRACKED_CHART_COLOR = '#a1a1aa'
+const IMPLIED_COLOR = '#6366f1'
+const TRACKED_CHART_COLOR = '#94a3b8'
+const SAVINGS_POSITIVE = '#06b6d4'
+const SAVINGS_NEGATIVE = '#f59e0b'
 
 /* ─── Tooltips ─── */
 
@@ -95,6 +99,7 @@ export function WealthDashboard() {
   const [allocation, setAllocation] = useState<AllocationGroup[]>([])
   const [allocationMonth, setAllocationMonth] = useState('')
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
+  const [compositionHover, setCompositionHover] = useState<{ label: string; amount: number; pct: number; color: string } | null>(null)
   const [comparisonData, setComparisonData] = useState<ComparisonPoint[]>([])
   const [savingsData, setSavingsData] = useState<SavingsPoint[]>([])
 
@@ -230,8 +235,6 @@ export function WealthDashboard() {
   const cashPct = totalAssets > 0 && latestBreakdown ? (latestBreakdown.cash / totalAssets) * 100 : 0
   const investPct = 100 - cashPct
 
-  const maxNw = Math.max(...netWorthData.map(d => d.value), 1)
-
   if (loading) {
     return (
       <div className="space-y-10">
@@ -301,40 +304,31 @@ export function WealthDashboard() {
         </div>
       </div>
 
-      {/* Net Worth Trend — like 6-Month Trend (vertical bars) */}
+      {/* Net Worth Trend — line chart */}
       {netWorthData.length > 0 && (
         <div>
           <SectionTitle>Net Worth Over Time</SectionTitle>
           <Card className="p-4 sm:p-6">
-            <div className="flex items-end gap-2 sm:gap-4 h-48 sm:h-64">
-              {netWorthData.map((d) => {
-                const barHeightPct = maxNw > 0 ? Math.max((d.value / maxNw) * 100, 8) : 8
-                return (
-                  <div
-                    key={d.month}
-                    className="flex-1 flex flex-col items-center gap-2 sm:gap-3 group min-w-0"
-                  >
-                    <span className="text-[10px] sm:text-xs text-zinc-400 dark:text-zinc-500 tabular-nums group-hover:text-zinc-600 dark:group-hover:text-zinc-400 truncate w-full text-center hidden sm:block">
-                      {formatCurrency(d.value)}
-                    </span>
-                    <div className="w-full h-36 sm:h-48 flex flex-col justify-end items-center">
-                      <div
-                        className="w-full max-w-12 sm:max-w-16 rounded-t-lg bg-zinc-300 dark:bg-zinc-600 hover:bg-zinc-400 dark:hover:bg-zinc-500 transition-all"
-                        style={{ height: `${barHeightPct}%`, minHeight: 20 }}
-                      />
-                    </div>
-                    <span className="text-[10px] sm:text-xs font-medium text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 whitespace-nowrap">
-                      {formatShortMonth(d.month)}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={netWorthData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+                <defs>
+                  <linearGradient id="nw-g" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#71717a" stopOpacity={0.2} />
+                    <stop offset="100%" stopColor="#71717a" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
+                <YAxis hide domain={['auto', 'auto']} tickFormatter={(v) => formatCurrency(v)} />
+                <Tooltip content={<ChartTip />} />
+                <Area type="monotone" dataKey="value" stroke="none" fill="url(#nw-g)" />
+                <Line type="monotone" dataKey="value" name="Net Worth" stroke="#71717a" strokeWidth={2} dot={{ fill: '#71717a', strokeWidth: 0, r: 3 }} activeDot={{ r: 5, fill: '#71717a', stroke: '#fff', strokeWidth: 2 }} />
+              </LineChart>
+            </ResponsiveContainer>
           </Card>
         </div>
       )}
 
-      {/* Composition — like Spend mix (stacked bar + legend) */}
+      {/* Composition — like Spend mix with hover tooltips */}
       {(() => {
         const compSegments = allocation.length > 0
           ? allocation.map((g, i) => ({ label: g.label, amount: g.amount, pct: g.pct, color: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }))
@@ -345,22 +339,31 @@ export function WealthDashboard() {
               ]
             : []
         if (compSegments.length === 0) return null
+        const segments = compSegments.filter(s => s.pct > 0)
         return (
           <div>
             <SectionTitle>Composition {allocationMonth && `· ${allocationMonth}`}</SectionTitle>
-            <Card className="p-4 sm:p-5">
-              <div className="w-full h-8 sm:h-10 rounded-lg overflow-hidden flex">
-                {compSegments.filter(s => s.pct > 0).map((seg) => (
+            <Card className="p-4 sm:p-5 relative overflow-visible">
+              <div className="w-full h-8 sm:h-10 rounded-lg flex relative overflow-visible" onMouseLeave={() => setCompositionHover(null)}>
+                {segments.map((seg) => (
                   <div
                     key={seg.label}
-                    className="h-full transition-all min-w-0"
+                    className="h-full transition-all min-w-0 cursor-pointer hover:opacity-90 relative first:rounded-l-lg last:rounded-r-lg overflow-visible"
                     style={{ width: `${seg.pct}%`, backgroundColor: seg.color }}
-                    title={`${seg.label}: ${formatCurrency(seg.amount)} (${seg.pct.toFixed(0)}%)`}
-                  />
+                    onMouseEnter={() => setCompositionHover(seg)}
+                  >
+                    {compositionHover?.label === seg.label && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 shadow-lg whitespace-nowrap text-center">
+                        <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100">{seg.label}</p>
+                        <p className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{formatCurrency(seg.amount)}</p>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{seg.pct.toFixed(1)}%</p>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
-                {compSegments.filter(s => s.pct > 0).map((seg) => (
+                {segments.map((seg) => (
                   <span key={seg.label} className="inline-flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
                     {seg.label} {seg.pct.toFixed(0)}% · {formatCurrency(seg.amount)}
@@ -403,8 +406,8 @@ export function WealthDashboard() {
                 <AreaChart data={expenseData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
                   <defs>
                     <linearGradient id="exp-g" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={SPENDING_CHART_COLOR} stopOpacity={0.3} />
-                      <stop offset="100%" stopColor={SPENDING_CHART_COLOR} stopOpacity={0} />
+                      <stop offset="0%" stopColor={IMPLIED_COLOR} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={IMPLIED_COLOR} stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
@@ -435,7 +438,7 @@ export function WealthDashboard() {
                 </BarChart>
               </ResponsiveContainer>
               <div className="flex gap-4 mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: SPENDING_CHART_COLOR }} />Implied</span>
+                <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: IMPLIED_COLOR }} />Implied</span>
                 <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full flex-shrink-0 bg-zinc-400" />Tracked</span>
               </div>
             </Card>
@@ -453,7 +456,7 @@ export function WealthDashboard() {
                   <Tooltip content={<PctTip />} />
                   <Bar dataKey="rate" name="Savings %" radius={[4, 4, 0, 0]}>
                     {savingsData.map((d, i) => (
-                      <Cell key={i} fill={d.rate >= 0 ? '#22c55e' : '#ef4444'} />
+                      <Cell key={i} fill={d.rate >= 0 ? SAVINGS_POSITIVE : SAVINGS_NEGATIVE} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -463,7 +466,7 @@ export function WealthDashboard() {
         )}
       </div>
 
-      {/* Allocation — like By Category (grid of colored cards) */}
+      {/* Allocation — cards expand inline to show assets */}
       {allocation.length > 0 && (
         <div>
           <SectionTitle>Asset Allocation {allocationMonth && `· ${allocationMonth}`}</SectionTitle>
@@ -474,55 +477,60 @@ export function WealthDashboard() {
               const isOther = expandedGroup && expandedGroup !== group.label
               const hasKids = group.assets.length > 0
               return (
-                <button
+                <div
                   key={group.label}
-                  type="button"
-                  onClick={() => hasKids && setExpandedGroup(isOpen ? null : group.label)}
-                  className={`relative overflow-hidden rounded-2xl p-4 text-left transition-all ${!hasKids ? 'cursor-default' : 'hover:scale-[1.02]'} ${isOpen ? 'ring-2 ring-zinc-900 dark:ring-zinc-100 ring-offset-2 dark:ring-offset-zinc-900' : ''} ${isOther ? 'opacity-40' : ''}`}
-                  style={{ backgroundColor: `${color}10` }}
+                  className={`col-span-2 sm:col-span-1 transition-all duration-300 ${isOpen ? 'sm:col-span-2' : ''} ${isOther ? 'opacity-40' : ''}`}
                 >
-                  <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-30" style={{ backgroundColor: color }} />
-                  <div className="relative">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold mb-3" style={{ backgroundColor: color }}>
-                      {group.label.slice(0, 2).toUpperCase()}
-                    </div>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">{group.label}</p>
-                    <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(group.amount)}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <div className="flex-1 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${group.pct}%`, backgroundColor: color }} />
+                  <button
+                    type="button"
+                    onClick={() => hasKids && setExpandedGroup(isOpen ? null : group.label)}
+                    className={`w-full relative overflow-hidden rounded-2xl p-4 text-left transition-all ${!hasKids ? 'cursor-default' : 'hover:scale-[1.01]'} ${isOpen ? 'ring-2 ring-zinc-900 dark:ring-zinc-100 ring-offset-2 dark:ring-offset-zinc-900 rounded-b-none' : ''}`}
+                    style={{ backgroundColor: `${color}10` }}
+                  >
+                    <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-30" style={{ backgroundColor: color }} />
+                    <div className="relative flex items-start justify-between">
+                      <div>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold mb-3" style={{ backgroundColor: color }}>
+                          {group.label.slice(0, 2).toUpperCase()}
+                        </div>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">{group.label}</p>
+                        <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(group.amount)}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="flex-1 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden max-w-24">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${group.pct}%`, backgroundColor: color }} />
+                          </div>
+                          <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">{group.pct.toFixed(0)}%</span>
+                        </div>
                       </div>
-                      <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">{group.pct.toFixed(0)}%</span>
+                      {hasKids && (
+                        <div className="flex-shrink-0">
+                          <svg className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  {hasKids && (
-                    <div className="absolute top-3 right-3">
-                      <svg className={`w-4 h-4 text-zinc-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                      </svg>
+                  </button>
+                  {isOpen && hasKids && group.assets.length > 0 && (
+                    <div
+                      className="rounded-b-2xl border-t border-zinc-200 dark:border-zinc-700 overflow-hidden animate-fade-slide-in"
+                      style={{ backgroundColor: `${color}08` }}
+                    >
+                      {group.assets.map((a) => (
+                        <div key={a.name} className="px-4 py-3 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 last:border-b-0">
+                          <span className="text-sm text-zinc-600 dark:text-zinc-400">{a.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium tabular-nums text-zinc-900 dark:text-zinc-100">{formatCurrency(a.amount)}</span>
+                            <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">{a.pct.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
-                </button>
+                </div>
               )
             })}
           </div>
-          {expandedGroup && (() => {
-            const g = allocation.find(x => x.label === expandedGroup)
-            if (!g?.assets?.length) return null
-            return (
-              <div className="space-y-2 mt-2">
-                {g.assets.map((a) => (
-                  <Card key={a.name} className="p-3 flex items-center justify-between">
-                    <span className="text-sm text-zinc-600 dark:text-zinc-400">{a.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium tabular-nums text-zinc-900 dark:text-zinc-100">{formatCurrency(a.amount)}</span>
-                      <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">{a.pct.toFixed(1)}%</span>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )
-          })()}
         </div>
       )}
 
