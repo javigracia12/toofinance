@@ -92,10 +92,10 @@ function StatCounter({ value, suffix = '', label }: { value: number; suffix?: st
 
   return (
     <div ref={ref} className="text-center">
-      <div className="text-4xl sm:text-5xl font-bold text-zinc-900 tabular-nums">
+      <div className="text-4xl sm:text-5xl font-semibold text-zinc-900 tabular-nums tracking-[-0.02em]">
         {count.toLocaleString()}{suffix}
       </div>
-      <div className="mt-2 text-sm text-zinc-500 uppercase tracking-wider">{label}</div>
+      <div className="mt-2 text-[13px] text-zinc-500 uppercase tracking-wider">{label}</div>
     </div>
   )
 }
@@ -130,23 +130,37 @@ function DeviceMockup() {
 
   return (
     <div className="relative mx-auto w-full max-w-sm">
-      {/* Tab switcher */}
-      <div className="flex justify-center mb-6">
-        <div className="inline-flex bg-zinc-100 rounded-full p-1">
+      {/* Tab switcher - z-10 so it stays above glow and is clickable */}
+      <div className="relative z-10 flex justify-center mb-6">
+        <div
+          role="tablist"
+          aria-label="Product demo"
+          className="inline-flex bg-zinc-200/80 rounded-full p-1 shadow-inner"
+        >
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'expenses'}
+            aria-controls="device-demo"
             onClick={() => setActiveTab('expenses')}
-            className={`px-5 py-2 text-sm font-medium rounded-full transition-all duration-300 ${
-              activeTab === 'expenses' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+            className={`px-6 py-2.5 text-[15px] font-medium rounded-full transition-all duration-300 ease-out ${
+              activeTab === 'expenses'
+                ? 'bg-white text-zinc-900 shadow-sm'
+                : 'text-zinc-500 hover:text-zinc-800 hover:bg-white/50'
             }`}
           >
             Expenses
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'wealth'}
+            aria-controls="device-demo"
             onClick={() => setActiveTab('wealth')}
-            className={`px-5 py-2 text-sm font-medium rounded-full transition-all duration-300 ${
-              activeTab === 'wealth' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+            className={`px-6 py-2.5 text-[15px] font-medium rounded-full transition-all duration-300 ease-out ${
+              activeTab === 'wealth'
+                ? 'bg-white text-zinc-900 shadow-sm'
+                : 'text-zinc-500 hover:text-zinc-800 hover:bg-white/50'
             }`}
           >
             Wealth
@@ -154,8 +168,8 @@ function DeviceMockup() {
         </div>
       </div>
 
-      {/* Glow effect */}
-      <div className="absolute -inset-4 rounded-[3rem] blur-2xl overflow-hidden">
+      {/* Glow effect - pointer-events-none so toggle stays clickable */}
+      <div className="absolute -inset-4 rounded-[3rem] blur-2xl overflow-hidden pointer-events-none">
         <div
           className={`absolute inset-0 bg-gradient-to-r from-blue-500/20 via-violet-500/20 to-emerald-500/20 animate-gradient-xy transition-opacity duration-500 ${
             activeTab === 'expenses' ? 'opacity-100' : 'opacity-0'
@@ -169,7 +183,7 @@ function DeviceMockup() {
       </div>
 
       {/* Phone frame */}
-      <div className="relative bg-zinc-900 rounded-[2.5rem] p-3 shadow-2xl">
+      <div id="device-demo" className="relative bg-zinc-900 rounded-[2.5rem] p-3 shadow-2xl" role="tabpanel">
         <div className="bg-white rounded-[2rem] overflow-hidden">
           {/* Status bar */}
           <div className="h-6 bg-zinc-100 flex items-center justify-center">
@@ -434,37 +448,37 @@ export default function Home() {
 
   if (status === 'checking' || status === 'redirecting') {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#fbfbfd] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-zinc-200 border-t-[#0071e3] rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden">
-      {/* Decorative floating elements */}
+    <div className="min-h-screen bg-[#fbfbfd] overflow-x-hidden">
+      {/* Apple-style subtle gradient orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden>
-        <div className="absolute top-20 left-[10%] w-64 h-64 rounded-full bg-blue-100/50 blur-3xl animate-float-slow" />
-        <div className="absolute top-1/3 right-[5%] w-48 h-48 rounded-full bg-violet-100/50 blur-3xl animate-float-medium" style={{ animationDelay: '2s' }} />
-        <div className="absolute bottom-1/4 left-[15%] w-56 h-56 rounded-full bg-emerald-100/40 blur-3xl animate-float-slow" style={{ animationDelay: '4s' }} />
+        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-blue-50/80 to-transparent blur-3xl" />
+        <div className="absolute top-1/2 -left-40 w-[400px] h-[400px] rounded-full bg-gradient-to-tr from-indigo-50/60 to-transparent blur-3xl" />
+        <div className="absolute -bottom-40 right-1/4 w-[350px] h-[350px] rounded-full bg-gradient-to-t from-emerald-50/50 to-transparent blur-3xl" />
       </div>
 
       {/* Navigation */}
       <nav className="relative z-20 max-w-6xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between">
-          <Link href="/" className="text-xl font-semibold text-zinc-900">
-            Tool Finanzas
+          <Link href="/" className="text-[17px] font-semibold text-zinc-900 tracking-[-0.02em]">
+            Valora
           </Link>
           <div className="flex items-center gap-4">
             <Link
               href="/login"
-              className="text-sm font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
+              className="text-[15px] font-medium text-zinc-600 hover:text-zinc-900 transition-colors duration-200"
             >
-              Log in
+              Sign in
             </Link>
             <Link
               href="/signup"
-              className="px-5 py-2.5 text-sm font-medium bg-zinc-900 text-white rounded-full hover:bg-zinc-700 transition-colors"
+              className="text-[15px] font-medium text-white bg-[#0071e3] hover:bg-[#0077ed] px-5 py-2 rounded-full transition-colors duration-200"
             >
               Get started
             </Link>
@@ -477,7 +491,7 @@ export default function Home() {
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
           {/* Left: Text */}
           <div className="text-center lg:text-left">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-zinc-900 leading-[1.1] tracking-tight">
+            <h1 className="text-[2.75rem] sm:text-5xl lg:text-[3.5rem] font-semibold text-zinc-900 leading-[1.05] tracking-[-0.03em]">
               <AnimatedText text="Your money, tracked." />
             </h1>
             <p className="mt-6 text-lg sm:text-xl text-zinc-500 max-w-xl mx-auto lg:mx-0 animate-slide-up" style={{ animationDelay: '0.5s' }}>
@@ -508,8 +522,8 @@ export default function Home() {
       </section>
 
       {/* Stats Section */}
-      <section className="relative z-10 bg-zinc-50 border-y border-zinc-100">
-        <div className="max-w-6xl mx-auto px-6 py-16 sm:py-20">
+      <section className="relative z-10 bg-white/80 backdrop-blur">
+        <div className="max-w-5xl mx-auto px-6 sm:px-8 py-20 sm:py-24">
           <RevealSection>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               <StatCounter value={10000} suffix="+" label="Expenses tracked" />
@@ -603,7 +617,7 @@ export default function Home() {
 
       {/* How it works */}
       <section className="relative z-10 bg-zinc-900 text-white">
-        <div className="max-w-6xl mx-auto px-6 py-24 sm:py-32">
+        <div className="max-w-5xl mx-auto px-6 sm:px-8 py-24 sm:py-32">
           <RevealSection className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold">How it works</h2>
             <p className="mt-4 text-lg text-zinc-400 max-w-xl mx-auto">
@@ -653,10 +667,10 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-zinc-100">
-        <div className="max-w-6xl mx-auto px-6 py-8">
+      <footer className="relative z-10 border-t border-zinc-200/80">
+        <div className="max-w-5xl mx-auto px-6 sm:px-8 py-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <span className="text-sm text-zinc-400">Tool Finanzas</span>
+            <span className="text-sm text-zinc-400">Valora</span>
             <div className="flex gap-6">
               <Link href="/login" className="text-sm text-zinc-500 hover:text-zinc-900 transition-colors">Log in</Link>
               <Link href="/signup" className="text-sm text-zinc-500 hover:text-zinc-900 transition-colors">Sign up</Link>

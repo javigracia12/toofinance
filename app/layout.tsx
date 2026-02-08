@@ -3,7 +3,7 @@ import './globals.css'
 import { AuthGuard } from './AuthGuard'
 
 export const metadata: Metadata = {
-  title: 'Tool Finanzas',
+  title: 'Valora',
   description: 'Track expenses and net worth in one place.',
 }
 
