@@ -79,6 +79,7 @@ export default function AppPage() {
   const [expenseDate, setExpenseDate] = useState('')
 
   const [mutationError, setMutationError] = useState<string | null>(null)
+  const [mutationSuccess, setMutationSuccess] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const [darkMode, setDarkMode] = useState(false)
@@ -422,6 +423,7 @@ export default function AppPage() {
   const handleAddExpense = async () => {
     if (!amount || !description) return
     setMutationError(null)
+    setMutationSuccess(null)
     setSaving(true)
 
     const { data: { user } } = await supabase.auth.getUser()
@@ -521,6 +523,8 @@ export default function AppPage() {
     setIsRecurring(false)
     setRecurringDay('1')
     setSaving(false)
+    setMutationSuccess(isRecurring ? 'Recurring expense added.' : 'Expense added.')
+    setTimeout(() => setMutationSuccess(null), 4000)
   }
 
   const openEditRecurring = (r: RecurringExpense) => {
@@ -754,6 +758,24 @@ export default function AppPage() {
             onClick={() => setMutationError(null)}
             className="p-1 rounded hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
             aria-label="Dismiss error"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+      {mutationSuccess && (
+        <div
+          className="sticky top-0 z-40 flex items-center justify-between gap-3 px-4 py-3 bg-green-50 dark:bg-green-950/80 border-b border-green-200 dark:border-green-900 text-green-800 dark:text-green-200 text-sm"
+          role="status"
+        >
+          <span>{mutationSuccess}</span>
+          <button
+            type="button"
+            onClick={() => setMutationSuccess(null)}
+            className="p-1 rounded hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+            aria-label="Dismiss"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
