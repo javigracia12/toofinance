@@ -3,8 +3,8 @@ import './globals.css'
 import { AuthGuard } from './AuthGuard'
 
 export const metadata: Metadata = {
-  title: 'Expenses',
-  description: 'Track your expenses',
+  title: 'Tool Finanzas',
+  description: 'Track expenses and net worth in one place.',
 }
 
 export default function RootLayout({
