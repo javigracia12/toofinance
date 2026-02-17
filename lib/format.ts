@@ -19,6 +19,20 @@ export const formatFullMonth = (key: string) => {
 export const formatDayLabel = (date: string) =>
   new Date(date).toLocaleDateString(LOCALE, { month: 'short', day: 'numeric' })
 
+export const formatDateRange = (from: string, to: string) => {
+  const fromDate = new Date(from)
+  const toDate = new Date(to)
+  const sameYear = fromDate.getFullYear() === toDate.getFullYear()
+  const sameMonth = sameYear && fromDate.getMonth() === toDate.getMonth()
+  if (sameMonth) {
+    return new Intl.DateTimeFormat(LOCALE, { month: 'short', day: 'numeric', year: 'numeric' }).formatRange(fromDate, toDate)
+  }
+  if (sameYear) {
+    return new Intl.DateTimeFormat(LOCALE, { month: 'short', day: 'numeric' }).formatRange(fromDate, toDate) + ` ${fromDate.getFullYear()}`
+  }
+  return new Intl.DateTimeFormat(LOCALE, { month: 'short', day: 'numeric', year: 'numeric' }).formatRange(fromDate, toDate)
+}
+
 export const formatVsLastMonth = (value: number) => `${value > 0 ? '+' : ''}${value.toFixed(0)}% vs last month`
 
 export const getOrdinalSuffix = (day: number) => {

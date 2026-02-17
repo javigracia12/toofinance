@@ -13,6 +13,7 @@ import {
   formatShortMonth,
   formatFullMonth,
   formatDayLabel,
+  formatDateRange,
   formatVsLastMonth,
   getOrdinalSuffix,
 } from '@/lib/format'
@@ -47,6 +48,8 @@ export default function AppPage() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [monthFilter, setMonthFilter] = useState<string | null>(null)
   const [dayFilter, setDayFilter] = useState<string | null>(null)
+  const [dateRangeFilter, setDateRangeFilter] = useState<{ from: string; to: string } | null>(null)
+  const [dateRangeDraft, setDateRangeDraft] = useState<{ from: string; to: string } | null>(null)
   const [transactionSort, setTransactionSort] = useState<'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'category-asc' | 'category-desc'>('date-desc')
   const dayOptions = useMemo(() => getDayOptions(), [])
 
@@ -204,7 +207,21 @@ export default function AppPage() {
     [expenses, activeMonth]
   )
 
-  const activeMonthTotal = activeMonthExpenses.reduce((s, e) => s + e.amount, 0)
+  const dateRangeDisplay = useMemo(() => {
+    if (!dateRangeFilter) return null
+    const { from, to } = dateRangeFilter
+    return formatDateRange(from <= to ? from : to, from <= to ? to : from)
+  }, [dateRangeFilter])
+
+  const dateRangeExpenses = useMemo(() => {
+    if (!dateRangeFilter) return []
+    const { from, to } = dateRangeFilter
+    const [lo, hi] = from <= to ? [from, to] : [to, from]
+    return expenses.filter((e) => e.date >= lo && e.date <= hi)
+  }, [expenses, dateRangeFilter])
+
+  const baseExpenses = dateRangeFilter ? dateRangeExpenses : activeMonthExpenses
+  const activeMonthTotal = baseExpenses.reduce((s, e) => s + e.amount, 0)
 
   const lastMonthKey = useMemo(() => {
     const [y, m] = activeMonth.split('-').map(Number)
@@ -237,14 +254,14 @@ export default function AppPage() {
   }, [monthlyData, expensesExRent, categories])
 
   const filteredExpenses = useMemo(() => {
-    let filtered = activeMonthExpenses
+    let filtered = baseExpenses
     if (categoryFilter) filtered = filtered.filter((e) => e.category === categoryFilter)
-    if (dayFilter && getMonthKey(dayFilter) === activeMonth) {
+    if (!dateRangeFilter && dayFilter && getMonthKey(dayFilter) === activeMonth) {
       const target = normalizeDate(dayFilter)
       filtered = filtered.filter((e) => normalizeDate(e.date) === target)
     }
     return filtered.sort((a, b) => b.date.localeCompare(a.date))
-  }, [activeMonthExpenses, categoryFilter, dayFilter, activeMonth])
+  }, [baseExpenses, categoryFilter, dayFilter, activeMonth, dateRangeFilter])
 
   const filteredTotal = filteredExpenses.reduce((s, e) => s + e.amount, 0)
 
@@ -284,13 +301,13 @@ export default function AppPage() {
   )
 
   const maxMonth = Math.max(...monthlyData.map(([, v]) => v), 1)
-  const hasFilters = categoryFilter || monthFilter || dayFilter
+  const hasFilters = categoryFilter || monthFilter || dayFilter || dateRangeFilter
   const monthlyRecurringTotal = recurringExpenses.filter((r) => r.isActive).reduce((sum, r) => sum + r.amount, 0)
   const monthlyRecurringExRent = recurringExpenses.filter((r) => r.isActive && !isRent(r.category)).reduce((sum, r) => sum + r.amount, 0)
 
   // Predictions & extra metrics (current month only, no filters). Recurring = full month, not scaled. One-off = scaled.
   const predictionMetrics = useMemo(() => {
-    if (monthFilter || categoryFilter || activeMonth !== currentMonth) return null
+    if (monthFilter || categoryFilter || dateRangeFilter || activeMonth !== currentMonth) return null
     const now = new Date()
     const [y, m] = activeMonth.split('-').map(Number)
     const daysInMonth = new Date(y, m, 0).getDate()
@@ -368,7 +385,7 @@ export default function AppPage() {
       weekendAvg,
       weekdayAvg,
     }
-  }, [activeMonth, currentMonth, monthFilter, categoryFilter, activeMonthExpenses, monthlyRecurringTotal, monthlyRecurringExRent, expenses, lastMonthKey, categories])
+  }, [activeMonth, currentMonth, monthFilter, categoryFilter, dateRangeFilter, activeMonthExpenses, monthlyRecurringTotal, monthlyRecurringExRent, expenses, lastMonthKey, categories])
 
   const dailySpendingBars = useMemo(() => {
     if (!predictionMetrics) return []
@@ -394,6 +411,15 @@ export default function AppPage() {
     setCategoryFilter(null)
     setMonthFilter(null)
     setDayFilter(null)
+    setDateRangeFilter(null)
+    setDateRangeDraft(null)
+  }
+
+  const applyDateRange = () => {
+    if (!dateRangeDraft) return
+    const { from, to } = dateRangeDraft
+    const [lo, hi] = from <= to ? [from, to] : [to, from]
+    setDateRangeFilter({ from: lo, to: hi })
   }
 
   const handleExportCSV = () => {
@@ -409,7 +435,10 @@ export default function AppPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `expenses-${activeMonth}.csv`
+    const filename = dateRangeFilter
+      ? `expenses-${dateRangeFilter.from}-to-${dateRangeFilter.to}.csv`
+      : `expenses-${activeMonth}.csv`
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -729,6 +758,7 @@ export default function AppPage() {
   }
 
   const handleMonthClick = (month: string) => {
+    setDateRangeFilter(null)
     setMonthFilter((prev) => (prev === month ? null : month))
     setDayFilter(null)
   }
@@ -966,23 +996,139 @@ export default function AppPage() {
 
         {section === 'expenses' && view === 'dashboard' && (
           <div className="space-y-10">
+            {/* Date filter - Apple-style segmented control + range picker */}
+            <div className="flex flex-col gap-4">
+              <div
+                role="group"
+                aria-label="Date filter"
+                className="inline-flex w-full sm:w-auto mx-auto rounded-xl bg-zinc-100 dark:bg-zinc-800/80 p-1"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDateRangeFilter(null)
+                    setDateRangeDraft(null)
+                  }}
+                  className={`flex-1 sm:flex-none min-w-0 px-4 sm:px-6 py-2.5 text-[15px] font-medium rounded-lg transition-all duration-200 ${
+                    !dateRangeFilter
+                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-50 shadow-sm'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+                  }`}
+                >
+                  This month
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!dateRangeFilter) {
+                      const today = new Date()
+                      const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+                      const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+                      const range = {
+                        from: firstOfMonth.toISOString().split('T')[0],
+                        to: lastOfMonth.toISOString().split('T')[0],
+                      }
+                      setDateRangeDraft(range)
+                      setDateRangeFilter(range)
+                      setMonthFilter(null)
+                      setDayFilter(null)
+                    }
+                  }}
+                  className={`flex-1 sm:flex-none min-w-0 px-4 sm:px-6 py-2.5 text-[15px] font-medium rounded-lg transition-all duration-200 ${
+                    dateRangeFilter
+                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-50 shadow-sm'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+                  }`}
+                >
+                  Date range
+                </button>
+              </div>
+
+              {dateRangeFilter && (
+                <div
+                  className="flex flex-col gap-4 p-4 rounded-2xl bg-white/60 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/80"
+                  role="region"
+                  aria-label="Date range picker"
+                >
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                    <div className="flex-1 flex items-center gap-3">
+                      <label className="flex-shrink-0 text-[13px] font-medium text-zinc-500 dark:text-zinc-400 w-12">
+                        From
+                      </label>
+                      <input
+                        type="date"
+                        value={(dateRangeDraft ?? dateRangeFilter).from}
+                        onChange={(e) =>
+                          setDateRangeDraft((prev) => {
+                            const base = prev ?? dateRangeFilter
+                            return base ? { ...base, from: e.target.value } : null
+                          })
+                        }
+                        className="flex-1 min-w-0 px-3 py-2.5 text-[15px] text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-600 rounded-xl outline-none focus:ring-2 focus:ring-[#0071e3]/30 focus:border-[#0071e3] transition-all"
+                      />
+                    </div>
+                    <div className="hidden sm:block w-px h-8 bg-zinc-200 dark:bg-zinc-600 flex-shrink-0" />
+                    <div className="flex-1 flex items-center gap-3">
+                      <label className="flex-shrink-0 text-[13px] font-medium text-zinc-500 dark:text-zinc-400 w-12">
+                        To
+                      </label>
+                      <input
+                        type="date"
+                        value={(dateRangeDraft ?? dateRangeFilter).to}
+                        onChange={(e) =>
+                          setDateRangeDraft((prev) => {
+                            const base = prev ?? dateRangeFilter
+                            return base ? { ...base, to: e.target.value } : null
+                          })
+                        }
+                        className="flex-1 min-w-0 px-3 py-2.5 text-[15px] text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-600 rounded-xl outline-none focus:ring-2 focus:ring-[#0071e3]/30 focus:border-[#0071e3] transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={applyDateRange}
+                      className="px-5 py-2.5 text-[15px] font-medium text-white bg-[#0071e3] hover:bg-[#0077ed] rounded-xl transition-colors"
+                    >
+                      Apply
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDateRangeFilter(null)
+                        setDateRangeDraft(null)
+                      }}
+                      className="px-4 py-2.5 text-[14px] font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
+                      aria-label="Clear date range"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {hasFilters && (
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-zinc-400 dark:text-zinc-500">Filters:</span>
+                {dateRangeFilter && dateRangeDisplay && (
+                  <FilterPill label={dateRangeDisplay} onClear={() => { setDateRangeFilter(null); setDateRangeDraft(null) }} />
+                )}
                 {monthFilter && <FilterPill label={formatFullMonth(monthFilter)} onClear={() => { setMonthFilter(null); setDayFilter(null) }} />}
                 {categoryFilter && <FilterPill label={getCategory(categoryFilter).label} onClear={() => setCategoryFilter(null)} />}
-                {dayFilter && getMonthKey(dayFilter) === activeMonth && <FilterPill label={formatDayLabel(dayFilter)} onClear={() => setDayFilter(null)} />}
+                {dayFilter && getMonthKey(dayFilter) === activeMonth && !dateRangeFilter && <FilterPill label={formatDayLabel(dayFilter)} onClear={() => setDayFilter(null)} />}
                 <button onClick={clearFilters} className="text-sm text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 ml-2">Clear all</button>
               </div>
             )}
 
             <div className="text-center py-4 sm:py-6">
               <p className="text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">
-                {monthFilter ? formatFullMonth(monthFilter) : 'This Month'}
-                {hasFilters && ' (filtered)'}
+                {dateRangeFilter ? dateRangeDisplay : monthFilter ? formatFullMonth(monthFilter) : 'This Month'}
+                {hasFilters && !dateRangeFilter && ' (filtered)'}
               </p>
               <p className="mt-2 text-4xl sm:text-5xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(hasFilters ? filteredTotal : activeMonthTotal)}</p>
-              {!monthFilter && (
+              {!monthFilter && !dateRangeFilter && (
                 <p className={`mt-2 text-sm font-medium ${+percentChange > 0 ? 'text-red-500' : +percentChange < 0 ? 'text-green-500' : 'text-zinc-400 dark:text-zinc-500'}`}>
                   {+percentChange > 0 ? '↑' : +percentChange < 0 ? '↓' : ''} {Math.abs(+percentChange)}% vs last month
                 </p>
@@ -1280,7 +1426,7 @@ export default function AppPage() {
                   ) : undefined
                 }
               >
-                {categoryFilter || monthFilter ? 'Filtered Transactions' : 'All Transactions'}
+                {categoryFilter || monthFilter || dateRangeFilter ? 'Filtered Transactions' : 'All Transactions'}
               </SectionTitle>
               <Card className="overflow-hidden">
                 {filteredExpenses.length === 0 ? (
