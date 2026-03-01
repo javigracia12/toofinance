@@ -1,8 +1,7 @@
 'use client'
 
 import type { Expense, Category } from '@/lib/types'
-import { formatCurrency } from '@/lib/format'
-import { LOCALE } from '@/lib/constants'
+import { formatCurrency, formatDayLabel } from '@/lib/format'
 
 export function TransactionRow({
   expense,
@@ -37,7 +36,7 @@ export function TransactionRow({
             )}
           </div>
           <p className="text-xs text-zinc-400 dark:text-zinc-500">
-            {new Date(expense.date).toLocaleDateString(LOCALE, { month: 'short', day: 'numeric' })}
+            {formatDayLabel(expense.date)}
           </p>
         </div>
       </div>

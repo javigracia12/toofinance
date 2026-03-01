@@ -16,6 +16,8 @@ import {
   formatDateRange,
   formatVsLastMonth,
   getOrdinalSuffix,
+  todayISO,
+  parseLocalDate,
 } from '@/lib/format'
 import { isRentCategory, sortExpenses, getDayOptions } from '@/lib/expense-utils'
 import {
@@ -56,7 +58,7 @@ export default function AppPage() {
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('food')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [date, setDate] = useState(todayISO())
   const [isRecurring, setIsRecurring] = useState(false)
   const [recurringDay, setRecurringDay] = useState('1')
 
@@ -345,7 +347,7 @@ export default function AppPage() {
 
     // Spending velocity: compare to same point last month
     const lastMonthSamePoint = expenses
-      .filter((e) => getMonthKey(e.date) === lastMonthKey && new Date(e.date).getDate() <= daysElapsed)
+      .filter((e) => getMonthKey(e.date) === lastMonthKey && parseLocalDate(e.date).getDate() <= daysElapsed)
       .reduce((s, e) => s + e.amount, 0)
     const currentSpendingToDate = activeMonthExpenses.reduce((s, e) => s + e.amount, 0)
     const velocityDiff = lastMonthSamePoint > 0 ? ((currentSpendingToDate - lastMonthSamePoint) / lastMonthSamePoint) * 100 : 0
@@ -548,7 +550,7 @@ export default function AppPage() {
     setAmount('')
     setDescription('')
     setSelectedCategory('food')
-    setDate(new Date().toISOString().split('T')[0])
+    setDate(todayISO())
     setIsRecurring(false)
     setRecurringDay('1')
     setSaving(false)
@@ -1025,8 +1027,8 @@ export default function AppPage() {
                       const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
                       const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
                       const range = {
-                        from: firstOfMonth.toISOString().split('T')[0],
-                        to: lastOfMonth.toISOString().split('T')[0],
+                        from: `${firstOfMonth.getFullYear()}-${String(firstOfMonth.getMonth() + 1).padStart(2, '0')}-${String(firstOfMonth.getDate()).padStart(2, '0')}`,
+                        to: `${lastOfMonth.getFullYear()}-${String(lastOfMonth.getMonth() + 1).padStart(2, '0')}-${String(lastOfMonth.getDate()).padStart(2, '0')}`,
                       }
                       setDateRangeDraft(range)
                       setDateRangeFilter(range)

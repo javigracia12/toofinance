@@ -717,7 +717,8 @@ export function WealthTracker() {
   const toggleSection = (s: string) =>
     setExpandedSections(prev => ({ ...prev, [s]: !prev[s] }))
 
-  const years = [currentYear - 1, currentYear, currentYear + 1]
+  const startYear = currentYear - 20
+  const years = Array.from({ length: currentYear + 2 - startYear }, (_, i) => startYear + i)
 
   const hasData = yearData.cashAccountNames.length > 0 ||
     yearData.assetNames.length > 0 ||
@@ -735,21 +736,15 @@ export function WealthTracker() {
             <h1 className="text-xl sm:text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Wealth</h1>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Track your net worth over time</p>
           </div>
-          <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl w-fit">
+          <select
+            value={selectedYear}
+            onChange={(e) => handleYearChange(Number(e.target.value))}
+            className="px-4 py-2 text-sm font-medium rounded-xl bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 border-0 shadow-sm focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-500 outline-none"
+          >
             {years.map(year => (
-              <button
-                key={year}
-                onClick={() => handleYearChange(year)}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-                  selectedYear === year
-                    ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm'
-                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
-                }`}
-              >
-                {year}
-              </button>
+              <option key={year} value={year}>{year}</option>
             ))}
-          </div>
+          </select>
         </div>
         <div key={selectedYear} className="space-y-4 animate-pulse animate-fade-slide-in">
           <div className="h-10 bg-zinc-100 dark:bg-zinc-800 rounded-xl w-48" />
@@ -768,21 +763,15 @@ export function WealthTracker() {
           <h1 className="text-xl sm:text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Wealth</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Track your net worth over time</p>
         </div>
-        <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl w-fit">
+        <select
+          value={selectedYear}
+          onChange={(e) => handleYearChange(Number(e.target.value))}
+          className="px-4 py-2 text-sm font-medium rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-500 outline-none"
+        >
           {years.map(year => (
-            <button
-              key={year}
-              onClick={() => handleYearChange(year)}
-              className={`px-3 sm:px-4 py-2 text-sm font-medium rounded-lg transition-all touch-manipulation ${
-                selectedYear === year
-                  ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm'
-                  : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
-              }`}
-            >
-              {year}
-            </button>
+            <option key={year} value={year}>{year}</option>
           ))}
-        </div>
+        </select>
       </div>
 
       {saveError && (

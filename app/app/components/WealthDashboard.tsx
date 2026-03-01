@@ -279,7 +279,7 @@ export function WealthDashboard() {
       {/* Summary cards — like Predictions */}
       <div>
         <SectionTitle>Summary</SectionTitle>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <Card className="p-4 sm:p-5">
             <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Income</p>
             <p className="mt-1 text-xl sm:text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums break-all">
@@ -293,6 +293,17 @@ export function WealthDashboard() {
               {expenseData.length > 0 ? formatCurrency(expenseData[expenseData.length - 1].value) : '—'}
             </p>
             {expenseData.length > 0 && <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{expenseData[expenseData.length - 1].month}</p>}
+          </Card>
+          <Card className="p-4 sm:p-5">
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Savings</p>
+            <p className="mt-1 text-xl sm:text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums break-all">
+              {incomeData.length > 0 && expenseData.length > 0
+                ? formatCurrency(incomeData[incomeData.length - 1].value - expenseData[expenseData.length - 1].value)
+                : '—'}
+            </p>
+            {incomeData.length > 0 && expenseData.length > 0 && (
+              <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{incomeData[incomeData.length - 1].month}</p>
+            )}
           </Card>
           <Card className="p-4 sm:p-5">
             <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Savings Rate</p>

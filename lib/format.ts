@@ -6,6 +6,20 @@ export const formatCurrency = (n: number) =>
 export const getMonthKey = (date: string) => (date || '').slice(0, 7)
 export const normalizeDate = (date: string) => (date || '').split('T')[0]
 
+/** Today's date as YYYY-MM-DD in local time (no UTC shift). */
+export const todayISO = (): string => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Parse YYYY-MM-DD (or with T suffix) as local midnight so display is correct in any timezone. */
+export const parseLocalDate = (dateStr: string): Date => {
+  const raw = (dateStr || '').split('T')[0]
+  const [y, m, d] = raw.split('-').map(Number)
+  if (y == null || m == null || d == null) return new Date(NaN)
+  return new Date(y, m - 1, d)
+}
+
 export const formatShortMonth = (key: string) => {
   const [y, m] = key.split('-')
   return new Date(+y, +m - 1).toLocaleDateString(LOCALE, { month: 'short' })
@@ -17,11 +31,11 @@ export const formatFullMonth = (key: string) => {
 }
 
 export const formatDayLabel = (date: string) =>
-  new Date(date).toLocaleDateString(LOCALE, { month: 'short', day: 'numeric' })
+  parseLocalDate(date).toLocaleDateString(LOCALE, { month: 'short', day: 'numeric' })
 
 export const formatDateRange = (from: string, to: string) => {
-  const fromDate = new Date(from)
-  const toDate = new Date(to)
+  const fromDate = parseLocalDate(from)
+  const toDate = parseLocalDate(to)
   const sameYear = fromDate.getFullYear() === toDate.getFullYear()
   const sameMonth = sameYear && fromDate.getMonth() === toDate.getMonth()
   if (sameMonth) {
