@@ -1337,7 +1337,7 @@ export default function AppPage() {
                                   title={`${category.label}: ${formatCurrency(amount)}`}
                                   className={`transition-opacity hover:opacity-90 cursor-pointer ${isCatOther ? 'opacity-30' : ''}`}
                                   style={{ height: `${segPct}%`, minHeight: segPct > 0 ? 4 : 0, backgroundColor: category.color }}
-                                  onClick={(e) => { e.stopPropagation(); handleCategoryClick(category.id) }}
+                                  onClick={(e) => { e.stopPropagation(); setDateRangeFilter(null); setMonthFilter(month); setDayFilter(null); handleCategoryClick(category.id) }}
                                 />
                               )
                             })}
