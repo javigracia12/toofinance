@@ -307,7 +307,8 @@ export default function AppPage() {
   const monthlyRecurringTotal = recurringExpenses.filter((r) => r.isActive).reduce((sum, r) => sum + r.amount, 0)
   const monthlyRecurringExRent = recurringExpenses.filter((r) => r.isActive && !isRent(r.category)).reduce((sum, r) => sum + r.amount, 0)
 
-  // Predictions & extra metrics (current month only, no filters). Recurring = full month, not scaled. One-off = scaled.
+  // Predictions & extra metrics (current month only, no filters).
+  // Uses actual expenses only (no recurring templates) to avoid double-counting.
   const predictionMetrics = useMemo(() => {
     if (monthFilter || categoryFilter || dateRangeFilter || activeMonth !== currentMonth) return null
     const now = new Date()
@@ -316,22 +317,15 @@ export default function AppPage() {
     const daysElapsed = Math.min(now.getDate(), daysInMonth)
     const daysRemaining = Math.max(0, daysInMonth - daysElapsed)
 
-    // Filter out rent for variable spending metrics
-    const oneOffExpenses = activeMonthExpenses.filter((e) => !e.recurringId)
-    const oneOffExRent = oneOffExpenses.filter((e) => !isRent(e.category))
-    const oneOffTotal = oneOffExpenses.reduce((s, e) => s + e.amount, 0)
-    const oneOffTotalExRent = oneOffExRent.reduce((s, e) => s + e.amount, 0)
-
-    const recurringTotalThisMonth = monthlyRecurringTotal
-    const oneOffDailyAvg = daysElapsed > 0 ? oneOffTotal / daysElapsed : 0
-    const predictedOneOff = oneOffTotal + oneOffDailyAvg * daysRemaining
-    const predictedEndOfMonth = recurringTotalThisMonth + predictedOneOff
+    const totalSoFar = activeMonthExpenses.reduce((s, e) => s + e.amount, 0)
+    const totalExRent = activeMonthExpenses.filter((e) => !isRent(e.category)).reduce((s, e) => s + e.amount, 0)
+    const dailyAvg = daysElapsed > 0 ? totalSoFar / daysElapsed : 0
+    const predictedEndOfMonth = totalSoFar + dailyAvg * daysRemaining
 
     // Metrics excluding rent (variable spending only)
-    const dailyAvgExRent = daysElapsed > 0 ? oneOffTotalExRent / daysElapsed : 0
+    const dailyAvgExRent = daysElapsed > 0 ? totalExRent / daysElapsed : 0
     const weeklyAvgExRent = dailyAvgExRent * 7
-    const predictedOneOffExRent = oneOffTotalExRent + dailyAvgExRent * daysRemaining
-    const predictedExRent = monthlyRecurringExRent + predictedOneOffExRent
+    const predictedExRent = totalExRent + dailyAvgExRent * daysRemaining
 
     const byDay: Record<string, number> = {}
     activeMonthExpenses.filter((e) => !isRent(e.category)).forEach((e) => {
@@ -387,7 +381,7 @@ export default function AppPage() {
       weekendAvg,
       weekdayAvg,
     }
-  }, [activeMonth, currentMonth, monthFilter, categoryFilter, dateRangeFilter, activeMonthExpenses, monthlyRecurringTotal, monthlyRecurringExRent, expenses, lastMonthKey, categories])
+  }, [activeMonth, currentMonth, monthFilter, categoryFilter, dateRangeFilter, activeMonthExpenses, expenses, lastMonthKey, categories])
 
   const dailySpendingBars = useMemo(() => {
     if (!predictionMetrics) return []
