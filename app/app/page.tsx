@@ -14,7 +14,6 @@ import {
   formatFullMonth,
   formatDayLabel,
   formatDateRange,
-  formatVsLastMonth,
   getOrdinalSuffix,
   todayISO,
   parseLocalDate,
@@ -305,103 +304,113 @@ export default function AppPage() {
   const maxMonth = Math.max(...monthlyData.map(([, v]) => v), 1)
   const hasFilters = categoryFilter || monthFilter || dayFilter || dateRangeFilter
   const monthlyRecurringTotal = recurringExpenses.filter((r) => r.isActive).reduce((sum, r) => sum + r.amount, 0)
-  const monthlyRecurringExRent = recurringExpenses.filter((r) => r.isActive && !isRent(r.category)).reduce((sum, r) => sum + r.amount, 0)
 
-  // Predictions & extra metrics (current month only, no filters).
-  // Uses actual expenses only (no recurring templates) to avoid double-counting.
-  const predictionMetrics = useMemo(() => {
+  // Dashboard metrics: pace-adjusted, rent-aware, per-category burn rates
+  const dashboardMetrics = useMemo(() => {
     if (monthFilter || categoryFilter || dateRangeFilter || activeMonth !== currentMonth) return null
     const now = new Date()
     const [y, m] = activeMonth.split('-').map(Number)
     const daysInMonth = new Date(y, m, 0).getDate()
     const daysElapsed = Math.min(now.getDate(), daysInMonth)
     const daysRemaining = Math.max(0, daysInMonth - daysElapsed)
+    if (daysElapsed === 0) return null
 
+    const [ly, lm] = lastMonthKey.split('-').map(Number)
+    const daysInLastMonth = new Date(ly, lm, 0).getDate()
+
+    const lastMonthExps = expenses.filter((e) => getMonthKey(e.date) === lastMonthKey)
+    const lastMonthTotalAll = lastMonthExps.reduce((s, e) => s + e.amount, 0)
+
+    // Rent detection
+    const rentThisMonth = activeMonthExpenses.filter((e) => isRent(e.category)).reduce((s, e) => s + e.amount, 0)
+    const rentLastMonth = lastMonthExps.filter((e) => isRent(e.category)).reduce((s, e) => s + e.amount, 0)
+    const effectiveRent = rentThisMonth > 0 ? rentThisMonth : rentLastMonth
+
+    // Totals
     const totalSoFar = activeMonthExpenses.reduce((s, e) => s + e.amount, 0)
-    const totalExRent = activeMonthExpenses.filter((e) => !isRent(e.category)).reduce((s, e) => s + e.amount, 0)
-    const dailyAvg = daysElapsed > 0 ? totalSoFar / daysElapsed : 0
-    const predictedEndOfMonth = totalSoFar + dailyAvg * daysRemaining
+    const variableSoFar = activeMonthExpenses.filter((e) => !isRent(e.category)).reduce((s, e) => s + e.amount, 0)
+    const lastMonthVariable = lastMonthExps.filter((e) => !isRent(e.category)).reduce((s, e) => s + e.amount, 0)
 
-    // Metrics excluding rent (variable spending only)
-    const dailyAvgExRent = daysElapsed > 0 ? totalExRent / daysElapsed : 0
-    const weeklyAvgExRent = dailyAvgExRent * 7
-    const predictedExRent = totalExRent + dailyAvgExRent * daysRemaining
+    // Daily rates
+    const thisMonthDailyRate = totalSoFar / daysElapsed
+    const lastMonthDailyRate = daysInLastMonth > 0 ? lastMonthTotalAll / daysInLastMonth : 0
+    const thisMonthDailyRateExRent = variableSoFar / daysElapsed
+    const lastMonthDailyRateExRent = daysInLastMonth > 0 ? lastMonthVariable / daysInLastMonth : 0
 
+    // Projection
+    const variableProjection = (variableSoFar / daysElapsed) * daysInMonth
+    const projectedTotal = effectiveRent + variableProjection
+
+    // Category burn rates (ex. rent)
+    const catThisMonth: Record<string, number> = {}
+    const catLastMonth: Record<string, number> = {}
+    activeMonthExpenses.filter((e) => !isRent(e.category)).forEach((e) => {
+      catThisMonth[e.category] = (catThisMonth[e.category] || 0) + e.amount
+    })
+    lastMonthExps.filter((e) => !isRent(e.category)).forEach((e) => {
+      catLastMonth[e.category] = (catLastMonth[e.category] || 0) + e.amount
+    })
+    const allCatIds = new Set([...Object.keys(catThisMonth), ...Object.keys(catLastMonth)])
+    const categoryBurn = [...allCatIds]
+      .map((catId) => {
+        const amountThis = catThisMonth[catId] || 0
+        const amountLast = catLastMonth[catId] || 0
+        const dailyRateThis = amountThis / daysElapsed
+        const dailyRateLast = daysInLastMonth > 0 ? amountLast / daysInLastMonth : 0
+        const delta = dailyRateLast > 0 ? ((dailyRateThis - dailyRateLast) / dailyRateLast) * 100 : (dailyRateThis > 0 ? 100 : 0)
+        return { catId, amountThis, amountLast, dailyRateThis, dailyRateLast, delta }
+      })
+      .filter((c) => c.amountThis > 0 || c.amountLast > 0)
+      .sort((a, b) => b.amountThis - a.amountThis)
+
+    // Daily spending bars (ex. rent)
     const byDay: Record<string, number> = {}
     activeMonthExpenses.filter((e) => !isRent(e.category)).forEach((e) => {
       byDay[e.date] = (byDay[e.date] || 0) + e.amount
     })
-
-    // Daily spending data for chart
     const dailySpending: { date: string; amount: number; dayNum: number }[] = []
     for (let d = 1; d <= daysElapsed; d++) {
       const dateStr = `${activeMonth}-${String(d).padStart(2, '0')}`
       dailySpending.push({ date: dateStr, amount: byDay[dateStr] || 0, dayNum: d })
     }
+    const maxDailyAmount = Math.max(...dailySpending.map((d) => d.amount), 1)
+    const dailyBars = dailySpending.map((d) => ({
+      ...d,
+      heightPct: maxDailyAmount > 0 ? Math.max((d.amount / maxDailyAmount) * 100, 2) : 2,
+    }))
 
-    // Spending velocity: compare to same point last month
-    const lastMonthSamePoint = expenses
-      .filter((e) => getMonthKey(e.date) === lastMonthKey && parseLocalDate(e.date).getDate() <= daysElapsed)
-      .reduce((s, e) => s + e.amount, 0)
-    const currentSpendingToDate = activeMonthExpenses.reduce((s, e) => s + e.amount, 0)
-    const velocityDiff = lastMonthSamePoint > 0 ? ((currentSpendingToDate - lastMonthSamePoint) / lastMonthSamePoint) * 100 : 0
-
-    // Weekend vs weekday (excluding rent)
-    let weekendTotal = 0
-    let weekdayTotal = 0
-    let weekendDays = 0
-    let weekdayDays = 0
-    for (let d = 1; d <= daysElapsed; d++) {
-      const dateStr = `${activeMonth}-${String(d).padStart(2, '0')}`
-      const dayOfWeek = new Date(y, m - 1, d).getDay()
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-      const dayAmount = activeMonthExpenses
-        .filter((e) => e.date === dateStr && !isRent(e.category))
-        .reduce((s, e) => s + e.amount, 0)
-      if (isWeekend) {
-        weekendTotal += dayAmount
-        weekendDays++
-      } else {
-        weekdayTotal += dayAmount
-        weekdayDays++
-      }
-    }
-    const weekendAvg = weekendDays > 0 ? weekendTotal / weekendDays : 0
-    const weekdayAvg = weekdayDays > 0 ? weekdayTotal / weekdayDays : 0
+    // Pace diff for insight
+    const paceDiffPct = lastMonthDailyRateExRent > 0
+      ? ((thisMonthDailyRateExRent - lastMonthDailyRateExRent) / lastMonthDailyRateExRent) * 100
+      : 0
+    const projectedVsLastVariable = variableProjection - lastMonthVariable
 
     return {
-      predictedEndOfMonth,
-      predictedExRent,
-      dailyAvgExRent,
-      weeklyAvgExRent,
-      daysRemaining,
       daysElapsed,
-      dailySpending,
-      velocityDiff,
-      weekendAvg,
-      weekdayAvg,
+      daysInMonth,
+      daysRemaining,
+      daysInLastMonth,
+      totalSoFar,
+      variableSoFar,
+      lastMonthTotalAll,
+      lastMonthVariable,
+      rentThisMonth,
+      rentLastMonth,
+      effectiveRent,
+      thisMonthDailyRate,
+      lastMonthDailyRate,
+      thisMonthDailyRateExRent,
+      lastMonthDailyRateExRent,
+      variableProjection,
+      projectedTotal,
+      categoryBurn,
+      dailyBars,
+      lastMonthDailyAvgExRent: lastMonthDailyRateExRent,
+      maxDailyAmount,
+      paceDiffPct,
+      projectedVsLastVariable,
     }
   }, [activeMonth, currentMonth, monthFilter, categoryFilter, dateRangeFilter, activeMonthExpenses, expenses, lastMonthKey, categories])
-
-  const dailySpendingBars = useMemo(() => {
-    if (!predictionMetrics) return []
-    const daily = predictionMetrics.dailySpending
-    if (daily.length === 0) return []
-    const maxAmount = Math.max(...daily.map((d) => d.amount), 1)
-    return daily.map((d) => ({
-      ...d,
-      heightPct: maxAmount > 0 ? Math.max((d.amount / maxAmount) * 100, 2) : 2,
-    }))
-  }, [predictionMetrics])
-
-  const vsLastMonthDiff = predictionMetrics?.velocityDiff ?? 0
-  const vsLastMonthClass =
-    vsLastMonthDiff > 0
-      ? 'text-red-500'
-      : vsLastMonthDiff < 0
-        ? 'text-green-500'
-        : 'text-zinc-400 dark:text-zinc-500'
-  const vsLastMonthLabel = formatVsLastMonth(vsLastMonthDiff)
 
   const clearFilters = () => {
     setCategoryFilter(null)
@@ -1118,81 +1127,126 @@ export default function AppPage() {
               </div>
             )}
 
-            <div className="text-center py-4 sm:py-6">
-              <p className="text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">
-                {dateRangeFilter ? dateRangeDisplay : monthFilter ? formatFullMonth(monthFilter) : 'This Month'}
-                {hasFilters && !dateRangeFilter && ' (filtered)'}
-              </p>
-              <p className="mt-2 text-4xl sm:text-5xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(hasFilters ? filteredTotal : activeMonthTotal)}</p>
-              {!monthFilter && !dateRangeFilter && (
-                <p className={`mt-2 text-sm font-medium ${+percentChange > 0 ? 'text-red-500' : +percentChange < 0 ? 'text-green-500' : 'text-zinc-400 dark:text-zinc-500'}`}>
-                  {+percentChange > 0 ? '↑' : +percentChange < 0 ? '↓' : ''} {Math.abs(+percentChange)}% vs last month
-                </p>
-              )}
-            </div>
-
-            {predictionMetrics && (
-              <div className="space-y-6">
-                <div>
-                  <SectionTitle>Predictions</SectionTitle>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Card className="p-4 sm:p-5">
-                      <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">End of month (total)</p>
-                      <p className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.predictedEndOfMonth)}</p>
-                      <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">{predictionMetrics.daysRemaining} days left</p>
-                      <p className={`text-[11px] mt-1 ${vsLastMonthClass}`}>({vsLastMonthLabel})</p>
-                    </Card>
-                    <Card className="p-4 sm:p-5">
-                      <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">End of month (ex. rent)</p>
-                      <p className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.predictedExRent)}</p>
-                      <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">Variable spending only</p>
-                      <p className={`text-[11px] mt-1 ${vsLastMonthClass}`}>({vsLastMonthLabel})</p>
-                    </Card>
-                  </div>
-                </div>
-
-                <div>
-                  <SectionTitle>Spending Habits (ex. rent)</SectionTitle>
-                  <Card className="p-4 sm:p-5">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Daily avg</p>
-                        <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.dailyAvgExRent)}</p>
-                        <p className={`text-[11px] mt-1 ${vsLastMonthClass}`}>({vsLastMonthLabel})</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Weekly avg</p>
-                        <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.weeklyAvgExRent)}</p>
-                        <p className={`text-[11px] mt-1 ${vsLastMonthClass}`}>({vsLastMonthLabel})</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Weekday avg</p>
-                        <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.weekdayAvg)}</p>
-                        <p className={`text-[11px] mt-1 ${vsLastMonthClass}`}>({vsLastMonthLabel})</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">Weekend avg</p>
-                        <p className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(predictionMetrics.weekendAvg)}</p>
-                        <p className={`text-[11px] mt-1 ${vsLastMonthClass}`}>({vsLastMonthLabel})</p>
-                        {predictionMetrics.weekendAvg > predictionMetrics.weekdayAvg && (
-                          <p className="text-xs text-amber-500 mt-0.5">+{((predictionMetrics.weekendAvg / predictionMetrics.weekdayAvg - 1) * 100).toFixed(0)}% vs weekdays</p>
-                        )}
-                      </div>
+            {/* Pace Scorecard */}
+            {dashboardMetrics ? (
+              <div className="space-y-10">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <Card className="p-5">
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500 uppercase tracking-widest font-semibold">Total Spending</p>
+                    <p className="mt-2 text-3xl font-bold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(dashboardMetrics.totalSoFar)}</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{formatCurrency(dashboardMetrics.thisMonthDailyRate)}/day</span>
+                      {(() => {
+                        const diff = dashboardMetrics.lastMonthDailyRate > 0
+                          ? ((dashboardMetrics.thisMonthDailyRate - dashboardMetrics.lastMonthDailyRate) / dashboardMetrics.lastMonthDailyRate) * 100
+                          : 0
+                        return diff !== 0 ? (
+                          <span className={`text-[11px] font-semibold ${diff > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                            {diff > 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(0)}%
+                          </span>
+                        ) : null
+                      })()}
                     </div>
+                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">vs {formatCurrency(dashboardMetrics.lastMonthDailyRate)}/day last month</p>
+                  </Card>
+
+                  <Card className="p-5">
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500 uppercase tracking-widest font-semibold">Variable (ex. rent)</p>
+                    <p className="mt-2 text-3xl font-bold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(dashboardMetrics.variableSoFar)}</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{formatCurrency(dashboardMetrics.thisMonthDailyRateExRent)}/day</span>
+                      {(() => {
+                        const diff = dashboardMetrics.lastMonthDailyRateExRent > 0
+                          ? ((dashboardMetrics.thisMonthDailyRateExRent - dashboardMetrics.lastMonthDailyRateExRent) / dashboardMetrics.lastMonthDailyRateExRent) * 100
+                          : 0
+                        return diff !== 0 ? (
+                          <span className={`text-[11px] font-semibold ${diff > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                            {diff > 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(0)}%
+                          </span>
+                        ) : null
+                      })()}
+                    </div>
+                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">vs {formatCurrency(dashboardMetrics.lastMonthDailyRateExRent)}/day last month</p>
+                  </Card>
+
+                  <Card className="p-5 bg-zinc-50 dark:bg-zinc-800/60">
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500 uppercase tracking-widest font-semibold">Projected End of Month</p>
+                    <p className="mt-2 text-3xl font-bold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(dashboardMetrics.projectedTotal)}</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+                      {dashboardMetrics.rentThisMonth > 0 ? 'Rent recorded' : 'Rent estimated'}: {formatCurrency(dashboardMetrics.effectiveRent)}
+                    </p>
+                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">Variable proj: {formatCurrency(dashboardMetrics.variableProjection)} · {dashboardMetrics.daysRemaining} days left</p>
                   </Card>
                 </div>
 
+                {/* Category Burn Rate Table */}
+                {dashboardMetrics.categoryBurn.length > 0 && (
+                  <div>
+                    <SectionTitle>Category Burn Rate</SectionTitle>
+                    <Card className="overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-800">
+                      {dashboardMetrics.categoryBurn.map((burn) => {
+                        const cat = getCategory(burn.catId)
+                        const isFiltered = categoryFilter === burn.catId
+                        const isOther = categoryFilter && categoryFilter !== burn.catId
+                        const paceRatio = burn.dailyRateLast > 0 ? (burn.dailyRateThis / burn.dailyRateLast) * 100 : (burn.dailyRateThis > 0 ? 150 : 0)
+                        return (
+                          <button
+                            key={burn.catId}
+                            type="button"
+                            onClick={() => handleCategoryClick(burn.catId)}
+                            className={`w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 text-left transition-all hover:bg-zinc-50 dark:hover:bg-zinc-800/40 ${isFiltered ? 'bg-zinc-50 dark:bg-zinc-800/40' : ''} ${isOther ? 'opacity-35' : ''}`}
+                          >
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                            <span className="flex-1 min-w-0">
+                              <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate block">{cat.label}</span>
+                              <span className="text-[11px] text-zinc-400 dark:text-zinc-500 tabular-nums">{formatCurrency(burn.dailyRateThis)}/day vs {formatCurrency(burn.dailyRateLast)}/day</span>
+                            </span>
+                            <span className="flex-shrink-0 w-24 sm:w-32">
+                              <span className="block w-full h-1.5 bg-zinc-100 dark:bg-zinc-700 rounded-full overflow-hidden">
+                                <span
+                                  className={`block h-full rounded-full transition-all ${paceRatio > 100 ? 'bg-red-400' : 'bg-emerald-400'}`}
+                                  style={{ width: `${Math.min(paceRatio, 100)}%` }}
+                                />
+                              </span>
+                            </span>
+                            <span className="flex-shrink-0 text-right w-20 sm:w-24">
+                              <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums block">{formatCurrency(burn.amountThis)}</span>
+                              <span className={`text-[11px] font-medium tabular-nums ${burn.delta > 0 ? 'text-red-500' : burn.delta < 0 ? 'text-emerald-500' : 'text-zinc-400'}`}>
+                                {burn.delta > 0 ? '▲' : burn.delta < 0 ? '▼' : '—'} {burn.delta !== 0 ? `${Math.abs(burn.delta).toFixed(0)}%` : ''}
+                              </span>
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </Card>
+                  </div>
+                )}
+
+                {/* Daily Burn Chart (ex. rent) */}
                 <div>
                   <SectionTitle>Daily Spending (ex. rent)</SectionTitle>
                   <Card className="p-4 sm:p-5">
-                    {dailySpendingBars.length === 0 ? (
+                    {dashboardMetrics.dailyBars.length === 0 ? (
                       <div className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-8">No spending recorded yet this month.</div>
                     ) : (
                       <>
-                        <div className="flex items-end justify-between gap-0.5 sm:gap-1 h-32 sm:h-40">
-                          {dailySpendingBars.map((bar) => {
-                            const isToday = bar.dayNum === predictionMetrics.daysElapsed
+                        <div className="relative flex items-end justify-between gap-0.5 sm:gap-1 h-32 sm:h-40">
+                          {dashboardMetrics.lastMonthDailyAvgExRent > 0 && (
+                            <div
+                              className="absolute left-0 right-0 border-t-2 border-dashed border-zinc-300 dark:border-zinc-600 pointer-events-none z-10"
+                              style={{
+                                bottom: `${Math.min((dashboardMetrics.lastMonthDailyAvgExRent / dashboardMetrics.maxDailyAmount) * 100, 100)}%`,
+                              }}
+                            >
+                              <span className="absolute right-0 -top-4 text-[9px] text-zinc-400 dark:text-zinc-500 bg-white dark:bg-zinc-900 px-1 rounded">
+                                last mo avg
+                              </span>
+                            </div>
+                          )}
+                          {dashboardMetrics.dailyBars.map((bar) => {
+                            const isToday = bar.dayNum === dashboardMetrics.daysElapsed
                             const isSelected = dayFilter && normalizeDate(dayFilter) === normalizeDate(bar.date)
+                            const aboveAvg = dashboardMetrics.lastMonthDailyAvgExRent > 0 && bar.amount > dashboardMetrics.lastMonthDailyAvgExRent
                             return (
                               <button
                                 type="button"
@@ -1212,9 +1266,11 @@ export default function AppPage() {
                                       ? 'ring-2 ring-zinc-900 dark:ring-zinc-100 ring-offset-2 dark:ring-offset-zinc-900 bg-zinc-900 dark:bg-zinc-100'
                                       : isToday
                                         ? 'bg-blue-500 dark:bg-blue-400'
-                                        : bar.amount > 0
-                                          ? 'bg-zinc-300 dark:bg-zinc-600 hover:bg-zinc-400 dark:hover:bg-zinc-500'
-                                          : 'bg-zinc-100 dark:bg-zinc-800'
+                                        : aboveAvg
+                                          ? 'bg-red-300 dark:bg-red-500/60 hover:bg-red-400 dark:hover:bg-red-500/80'
+                                          : bar.amount > 0
+                                            ? 'bg-zinc-300 dark:bg-zinc-600 hover:bg-zinc-400 dark:hover:bg-zinc-500'
+                                            : 'bg-zinc-100 dark:bg-zinc-800'
                                   }`}
                                   style={{ height: `${bar.heightPct}%`, minHeight: 4 }}
                                 />
@@ -1224,7 +1280,7 @@ export default function AppPage() {
                         </div>
                         <div className="flex justify-between mt-3 text-[10px] text-zinc-400 dark:text-zinc-500">
                           <span>1</span>
-                          <span>{predictionMetrics.daysElapsed}</span>
+                          <span>{dashboardMetrics.daysElapsed}</span>
                         </div>
                         {dayFilter && (
                           <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400 text-center">
@@ -1236,163 +1292,231 @@ export default function AppPage() {
                   </Card>
                 </div>
 
-              </div>
-            )}
-
-            {/* Spend mix: top 5 categories + Other as single stacked bar (ex. rent) */}
-            {categoryBreakdownExRent.length > 0 && filteredTotalExRent > 0 && (
-              <div>
-                <SectionTitle>Spend mix (ex. rent)</SectionTitle>
-                <Card className="p-4 sm:p-5">
-                  <div className="w-full h-8 sm:h-10 rounded-lg overflow-hidden flex">
-                    {(() => {
-                      const top5 = categoryBreakdownExRent.slice(0, 5)
-                      const otherAmount = categoryBreakdownExRent.slice(5).reduce((s, { amount }) => s + amount, 0)
-                      const segments = top5.map(({ category, amount }) => ({ id: category.id, label: category.label, amount, color: category.color }))
-                      if (otherAmount > 0) segments.push({ id: 'other', label: 'Other', amount: otherAmount, color: '#a1a1aa' })
-                      const totalSeg = segments.reduce((s, { amount }) => s + amount, 0)
-                      return segments.map((seg) => {
-                        const pct = totalSeg > 0 ? (seg.amount / totalSeg) * 100 : 0
-                        return (
-                          <button
-                            key={seg.id}
-                            type="button"
-                            onClick={() => seg.id !== 'other' && handleCategoryClick(seg.id)}
-                            className={`flex items-center justify-center min-w-0 transition-opacity ${seg.id === 'other' ? 'cursor-default' : 'hover:opacity-90'}`}
-                            style={{ width: `${pct}%`, backgroundColor: seg.color }}
-                            title={`${seg.label}: ${formatCurrency(seg.amount)} (${pct.toFixed(0)}%)`}
-                          >
-                            {pct >= 10 && <span className="text-[10px] font-medium text-white truncate px-0.5">{seg.label}</span>}
-                          </button>
-                        )
-                      })
-                    })()}
-                  </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    {(() => {
-                      const top5 = categoryBreakdownExRent.slice(0, 5)
-                      const otherAmount = categoryBreakdownExRent.slice(5).reduce((s, { amount }) => s + amount, 0)
-                      return (
-                        <>
-                          {top5.map(({ category, amount }) => {
-                            const pct = (amount / filteredTotalExRent) * 100
+                {/* Spend mix: top 5 categories + Other as single stacked bar (ex. rent) */}
+                {categoryBreakdownExRent.length > 0 && filteredTotalExRent > 0 && (
+                  <div>
+                    <SectionTitle>Spend Mix (ex. rent)</SectionTitle>
+                    <Card className="p-4 sm:p-5">
+                      <div className="w-full h-8 sm:h-10 rounded-lg overflow-hidden flex">
+                        {(() => {
+                          const top5 = categoryBreakdownExRent.slice(0, 5)
+                          const otherAmount = categoryBreakdownExRent.slice(5).reduce((s, { amount }) => s + amount, 0)
+                          const segments = top5.map(({ category, amount }) => ({ id: category.id, label: category.label, amount, color: category.color }))
+                          if (otherAmount > 0) segments.push({ id: 'other', label: 'Other', amount: otherAmount, color: '#a1a1aa' })
+                          const totalSeg = segments.reduce((s, { amount }) => s + amount, 0)
+                          return segments.map((seg) => {
+                            const pct = totalSeg > 0 ? (seg.amount / totalSeg) * 100 : 0
                             return (
-                              <button key={category.id} type="button" onClick={() => handleCategoryClick(category.id)} className="inline-flex items-center gap-1.5 hover:text-zinc-900 dark:hover:text-zinc-200">
-                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
-                                <span>{category.label}</span>
-                                <span className="tabular-nums">{pct.toFixed(0)}%</span>
+                              <button
+                                key={seg.id}
+                                type="button"
+                                onClick={() => seg.id !== 'other' && handleCategoryClick(seg.id)}
+                                className={`flex items-center justify-center min-w-0 transition-opacity ${seg.id === 'other' ? 'cursor-default' : 'hover:opacity-90'}`}
+                                style={{ width: `${pct}%`, backgroundColor: seg.color }}
+                                title={`${seg.label}: ${formatCurrency(seg.amount)} (${pct.toFixed(0)}%)`}
+                              >
+                                {pct >= 10 && <span className="text-[10px] font-medium text-white truncate px-0.5">{seg.label}</span>}
                               </button>
                             )
-                          })}
-                          {otherAmount > 0 && (
-                            <span className="inline-flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-zinc-400 flex-shrink-0" />
-                              <span>Other</span>
-                              <span className="tabular-nums">{((otherAmount / filteredTotalExRent) * 100).toFixed(0)}%</span>
-                            </span>
-                          )}
-                        </>
-                      )
-                    })()}
-                  </div>
-                </Card>
-              </div>
-            )}
-
-            <div>
-              <SectionTitle>6-Month Trend (ex. rent)</SectionTitle>
-              <Card className="p-4 sm:p-6">
-                <div className="flex items-end gap-2 sm:gap-4 h-48 sm:h-64">
-                  {monthlyDataByCategory.map(({ month, total, segments }) => {
-                    const isActive = month === activeMonth
-                    const isFiltered = monthFilter === month
-                    const barHeightPct = maxMonth > 0 ? Math.max((total / maxMonth) * 100, 8) : 8
-                    return (
-                      <div
-                        key={month}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => handleMonthClick(month)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleMonthClick(month)}
-                        className="flex-1 flex flex-col items-center gap-2 sm:gap-3 group min-w-0 cursor-pointer"
-                      >
-                        <span className="text-[10px] sm:text-xs text-zinc-400 dark:text-zinc-500 tabular-nums group-hover:text-zinc-600 dark:group-hover:text-zinc-400 truncate w-full text-center hidden sm:block">{formatCurrency(total)}</span>
-                        <div className="w-full h-36 sm:h-48 flex flex-col justify-end items-center">
-                          <div
-                            className={`w-full max-w-12 sm:max-w-16 flex flex-col rounded-t-lg overflow-hidden transition-all cursor-pointer ${isFiltered ? 'ring-2 ring-zinc-900 dark:ring-zinc-100 ring-offset-2 dark:ring-offset-zinc-900' : ''}`}
-                            style={{ height: `${barHeightPct}%`, minHeight: 20 }}
-                          >
-                            {[...segments].reverse().map(({ category, amount }) => {
-                              const segPct = total > 0 ? (amount / total) * 100 : 0
-                              const isCatOther = categoryFilter && categoryFilter !== category.id
-                              return (
-                                <div
-                                  key={category.id}
-                                  title={`${category.label}: ${formatCurrency(amount)}`}
-                                  className={`transition-opacity hover:opacity-90 cursor-pointer ${isCatOther ? 'opacity-30' : ''}`}
-                                  style={{ height: `${segPct}%`, minHeight: segPct > 0 ? 4 : 0, backgroundColor: category.color }}
-                                  onClick={(e) => { e.stopPropagation(); setDateRangeFilter(null); setMonthFilter(month); setDayFilter(null); handleCategoryClick(category.id) }}
-                                />
-                              )
-                            })}
-                          </div>
-                        </div>
-                        <span className={`text-[10px] sm:text-xs font-medium whitespace-nowrap ${isFiltered || isActive ? 'text-zinc-900 dark:text-zinc-50' : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-400'}`}>
-                          {formatShortMonth(month)}
-                        </span>
+                          })
+                        })()}
                       </div>
-                    )
-                  })}
-                </div>
-              </Card>
-            </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {(() => {
+                          const top5 = categoryBreakdownExRent.slice(0, 5)
+                          const otherAmount = categoryBreakdownExRent.slice(5).reduce((s, { amount }) => s + amount, 0)
+                          return (
+                            <>
+                              {top5.map(({ category, amount }) => {
+                                const pct = (amount / filteredTotalExRent) * 100
+                                return (
+                                  <button key={category.id} type="button" onClick={() => handleCategoryClick(category.id)} className="inline-flex items-center gap-1.5 hover:text-zinc-900 dark:hover:text-zinc-200">
+                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
+                                    <span>{category.label}</span>
+                                    <span className="tabular-nums">{pct.toFixed(0)}%</span>
+                                  </button>
+                                )
+                              })}
+                              {otherAmount > 0 && (
+                                <span className="inline-flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-zinc-400 flex-shrink-0" />
+                                  <span>Other</span>
+                                  <span className="tabular-nums">{((otherAmount / filteredTotalExRent) * 100).toFixed(0)}%</span>
+                                </span>
+                              )}
+                            </>
+                          )
+                        })()}
+                      </div>
+                    </Card>
+                  </div>
+                )}
 
-            {categoryBreakdownExRent.length > 0 && (
-              <div>
-                <SectionTitle>By Category (ex. rent)</SectionTitle>
-                <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                  {categoryBreakdownExRent.map(({ category, amount }) => {
-                    const percent = filteredTotalExRent > 0 ? (amount / filteredTotalExRent) * 100 : 0
-                    const isFiltered = categoryFilter === category.id
-                    const isOther = categoryFilter && categoryFilter !== category.id
-                    return (
-                      <button
-                        key={category.id}
-                        onClick={() => handleCategoryClick(category.id)}
-                        className={`relative overflow-hidden rounded-2xl p-4 text-left transition-all ${
-                          isFiltered ? 'ring-2 ring-zinc-900 dark:ring-zinc-100 ring-offset-2 dark:ring-offset-zinc-900' : ''
-                        } ${isOther ? 'opacity-40' : 'hover:scale-[1.02]'}`}
-                        style={{ backgroundColor: `${category.color}10` }}
-                      >
-                        <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-30" style={{ backgroundColor: category.color }} />
-                        <div className="relative">
-                          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold mb-3" style={{ backgroundColor: category.color }}>
-                            {category.label.slice(0, 2).toUpperCase()}
-                          </div>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">{category.label}</p>
-                          <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(amount)}</p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <div className="flex-1 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: category.color }} />
+                {/* 6-Month Trend (ex. rent) */}
+                <div>
+                  <SectionTitle>6-Month Trend (ex. rent)</SectionTitle>
+                  <Card className="p-4 sm:p-6">
+                    <div className="flex items-end gap-2 sm:gap-4 h-48 sm:h-64">
+                      {monthlyDataByCategory.map(({ month, total, segments }) => {
+                        const isActive = month === activeMonth
+                        const isFiltered = monthFilter === month
+                        const barHeightPct = maxMonth > 0 ? Math.max((total / maxMonth) * 100, 8) : 8
+                        return (
+                          <div
+                            key={month}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleMonthClick(month)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleMonthClick(month)}
+                            className="flex-1 flex flex-col items-center gap-2 sm:gap-3 group min-w-0 cursor-pointer"
+                          >
+                            <span className="text-[10px] sm:text-xs text-zinc-400 dark:text-zinc-500 tabular-nums group-hover:text-zinc-600 dark:group-hover:text-zinc-400 truncate w-full text-center hidden sm:block">{formatCurrency(total)}</span>
+                            <div className="w-full h-36 sm:h-48 flex flex-col justify-end items-center">
+                              <div
+                                className={`w-full max-w-12 sm:max-w-16 flex flex-col rounded-t-lg overflow-hidden transition-all cursor-pointer ${isFiltered ? 'ring-2 ring-zinc-900 dark:ring-zinc-100 ring-offset-2 dark:ring-offset-zinc-900' : ''}`}
+                                style={{ height: `${barHeightPct}%`, minHeight: 20 }}
+                              >
+                                {[...segments].reverse().map(({ category, amount }) => {
+                                  const segPct = total > 0 ? (amount / total) * 100 : 0
+                                  const isCatOther = categoryFilter && categoryFilter !== category.id
+                                  return (
+                                    <div
+                                      key={category.id}
+                                      title={`${category.label}: ${formatCurrency(amount)}`}
+                                      className={`transition-opacity hover:opacity-90 cursor-pointer ${isCatOther ? 'opacity-30' : ''}`}
+                                      style={{ height: `${segPct}%`, minHeight: segPct > 0 ? 4 : 0, backgroundColor: category.color }}
+                                      onClick={(e) => { e.stopPropagation(); setDateRangeFilter(null); setMonthFilter(month); setDayFilter(null); handleCategoryClick(category.id) }}
+                                    />
+                                  )
+                                })}
+                              </div>
                             </div>
-                            <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">{percent.toFixed(0)}%</span>
+                            <span className={`text-[10px] sm:text-xs font-medium whitespace-nowrap ${isFiltered || isActive ? 'text-zinc-900 dark:text-zinc-50' : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-400'}`}>
+                              {formatShortMonth(month)}
+                            </span>
                           </div>
-                        </div>
-                      </button>
-                    )
-                  })}
+                        )
+                      })}
+                    </div>
+                  </Card>
                 </div>
-              </div>
-            )}
 
-            {!hasFilters && categoryBreakdownExRent[0] && (
-              <Card className="bg-gradient-to-br from-zinc-900 to-zinc-800 dark:from-zinc-800 dark:to-zinc-900 border-0 p-6 text-white">
-                <h2 className="text-xs text-zinc-400 uppercase tracking-wider font-medium mb-3">Insight (ex. rent)</h2>
-                <p className="text-lg">
-                  <span className="font-semibold">{categoryBreakdownExRent[0].category.label}</span> is your biggest variable expense this month, accounting for{' '}
-                  <span className="font-semibold">{filteredTotalExRent > 0 ? ((categoryBreakdownExRent[0].amount / filteredTotalExRent) * 100).toFixed(0) : 0}%</span> of your non-rent spending.
-                </p>
-              </Card>
+                {/* Smart Insight */}
+                {dashboardMetrics.paceDiffPct !== 0 && (
+                  <Card className="bg-gradient-to-br from-zinc-900 to-zinc-800 dark:from-zinc-800 dark:to-zinc-900 border-0 p-6 text-white">
+                    <h2 className="text-[11px] text-zinc-400 uppercase tracking-widest font-semibold mb-3">Insight</h2>
+                    {dashboardMetrics.paceDiffPct > 0 ? (
+                      <p className="text-[15px] leading-relaxed">
+                        You're spending <span className="font-bold text-red-400">{Math.abs(dashboardMetrics.paceDiffPct).toFixed(0)}% more</span> per day on variable expenses compared to last month.
+                        At this pace, you'll spend <span className="font-bold">{formatCurrency(dashboardMetrics.variableProjection)}</span> on variable costs — <span className="font-bold text-red-400">{formatCurrency(Math.abs(dashboardMetrics.projectedVsLastVariable))}</span> more than last month.
+                      </p>
+                    ) : (
+                      <p className="text-[15px] leading-relaxed">
+                        You're trending <span className="font-bold text-emerald-400">{Math.abs(dashboardMetrics.paceDiffPct).toFixed(0)}% below</span> last month's variable spending pace.
+                        On track to save <span className="font-bold text-emerald-400">{formatCurrency(Math.abs(dashboardMetrics.projectedVsLastVariable))}</span> vs last month on variable expenses.
+                      </p>
+                    )}
+                  </Card>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* Fallback: when filters active or viewing past months, show summary + charts */}
+                <div className="text-center py-4 sm:py-6">
+                  <p className="text-sm text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">
+                    {dateRangeFilter ? dateRangeDisplay : monthFilter ? formatFullMonth(monthFilter) : 'This Month'}
+                    {hasFilters && !dateRangeFilter && ' (filtered)'}
+                  </p>
+                  <p className="mt-2 text-4xl sm:text-5xl font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{formatCurrency(hasFilters ? filteredTotal : activeMonthTotal)}</p>
+                  {!monthFilter && !dateRangeFilter && (
+                    <p className={`mt-2 text-sm font-medium ${+percentChange > 0 ? 'text-red-500' : +percentChange < 0 ? 'text-green-500' : 'text-zinc-400 dark:text-zinc-500'}`}>
+                      {+percentChange > 0 ? '↑' : +percentChange < 0 ? '↓' : ''} {Math.abs(+percentChange)}% vs last month
+                    </p>
+                  )}
+                </div>
+
+                {/* Spend mix */}
+                {categoryBreakdownExRent.length > 0 && filteredTotalExRent > 0 && (
+                  <div>
+                    <SectionTitle>Spend Mix (ex. rent)</SectionTitle>
+                    <Card className="p-4 sm:p-5">
+                      <div className="w-full h-8 sm:h-10 rounded-lg overflow-hidden flex">
+                        {(() => {
+                          const top5 = categoryBreakdownExRent.slice(0, 5)
+                          const otherAmount = categoryBreakdownExRent.slice(5).reduce((s, { amount }) => s + amount, 0)
+                          const segments = top5.map(({ category, amount }) => ({ id: category.id, label: category.label, amount, color: category.color }))
+                          if (otherAmount > 0) segments.push({ id: 'other', label: 'Other', amount: otherAmount, color: '#a1a1aa' })
+                          const totalSeg = segments.reduce((s, { amount }) => s + amount, 0)
+                          return segments.map((seg) => {
+                            const pct = totalSeg > 0 ? (seg.amount / totalSeg) * 100 : 0
+                            return (
+                              <button
+                                key={seg.id}
+                                type="button"
+                                onClick={() => seg.id !== 'other' && handleCategoryClick(seg.id)}
+                                className={`flex items-center justify-center min-w-0 transition-opacity ${seg.id === 'other' ? 'cursor-default' : 'hover:opacity-90'}`}
+                                style={{ width: `${pct}%`, backgroundColor: seg.color }}
+                                title={`${seg.label}: ${formatCurrency(seg.amount)} (${pct.toFixed(0)}%)`}
+                              >
+                                {pct >= 10 && <span className="text-[10px] font-medium text-white truncate px-0.5">{seg.label}</span>}
+                              </button>
+                            )
+                          })
+                        })()}
+                      </div>
+                    </Card>
+                  </div>
+                )}
+
+                {/* 6-Month Trend */}
+                <div>
+                  <SectionTitle>6-Month Trend (ex. rent)</SectionTitle>
+                  <Card className="p-4 sm:p-6">
+                    <div className="flex items-end gap-2 sm:gap-4 h-48 sm:h-64">
+                      {monthlyDataByCategory.map(({ month, total, segments }) => {
+                        const isActive = month === activeMonth
+                        const isFiltered = monthFilter === month
+                        const barHeightPct = maxMonth > 0 ? Math.max((total / maxMonth) * 100, 8) : 8
+                        return (
+                          <div
+                            key={month}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleMonthClick(month)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleMonthClick(month)}
+                            className="flex-1 flex flex-col items-center gap-2 sm:gap-3 group min-w-0 cursor-pointer"
+                          >
+                            <span className="text-[10px] sm:text-xs text-zinc-400 dark:text-zinc-500 tabular-nums group-hover:text-zinc-600 dark:group-hover:text-zinc-400 truncate w-full text-center hidden sm:block">{formatCurrency(total)}</span>
+                            <div className="w-full h-36 sm:h-48 flex flex-col justify-end items-center">
+                              <div
+                                className={`w-full max-w-12 sm:max-w-16 flex flex-col rounded-t-lg overflow-hidden transition-all cursor-pointer ${isFiltered ? 'ring-2 ring-zinc-900 dark:ring-zinc-100 ring-offset-2 dark:ring-offset-zinc-900' : ''}`}
+                                style={{ height: `${barHeightPct}%`, minHeight: 20 }}
+                              >
+                                {[...segments].reverse().map(({ category, amount }) => {
+                                  const segPct = total > 0 ? (amount / total) * 100 : 0
+                                  const isCatOther = categoryFilter && categoryFilter !== category.id
+                                  return (
+                                    <div
+                                      key={category.id}
+                                      title={`${category.label}: ${formatCurrency(amount)}`}
+                                      className={`transition-opacity hover:opacity-90 cursor-pointer ${isCatOther ? 'opacity-30' : ''}`}
+                                      style={{ height: `${segPct}%`, minHeight: segPct > 0 ? 4 : 0, backgroundColor: category.color }}
+                                      onClick={(e) => { e.stopPropagation(); setDateRangeFilter(null); setMonthFilter(month); setDayFilter(null); handleCategoryClick(category.id) }}
+                                    />
+                                  )
+                                })}
+                              </div>
+                            </div>
+                            <span className={`text-[10px] sm:text-xs font-medium whitespace-nowrap ${isFiltered || isActive ? 'text-zinc-900 dark:text-zinc-50' : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-400'}`}>
+                              {formatShortMonth(month)}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </Card>
+                </div>
+              </>
             )}
 
             <div>
